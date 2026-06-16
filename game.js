@@ -159,16 +159,19 @@ const SONGS = [
 let musicOn=false, musicIdx=0, musicTimer=null, musicLevel=0;
 function musicTick() {
   if (!musicOn) return;
-  const song = SONGS[musicLevel] || SONGS[0];
-  const note = song[musicIdx++ % song.length];
-  if (note[0] > 0) {
-    beep(note[0], 'square', note[1]*0.82, 0.12);
-    if (note[2]) beep(note[2], 'square', note[1]*0.82, 0.065);
-  }
-  musicTimer = setTimeout(musicTick, note[1]*1000);
+  try {
+    var song = SONGS[musicLevel] || SONGS[0];
+    var note = song[musicIdx++ % song.length];
+    if (note[0] > 0) beep(note[0], 'square', note[1]*0.82, 0.13);
+    musicTimer = setTimeout(musicTick, note[1]*1000);
+  } catch(e) { musicTimer = setTimeout(musicTick, 250); }
 }
-function startMusic(lv) { musicOn=true; musicLevel=Math.min(lv,SONGS.length-1); musicIdx=0; musicTick(); }
-function stopMusic()    { musicOn=false; clearTimeout(musicTimer); }
+function startMusic(lv) {
+  musicOn=true; musicLevel=Math.min(lv,SONGS.length-1); musicIdx=0;
+  var ac=getAC();
+  if(ac.state==='suspended'){ ac.resume().then(musicTick); } else { musicTick(); }
+}
+function stopMusic() { musicOn=false; clearTimeout(musicTimer); }
 
 // ── Draw helpers ─────────────────────────────────────────────────
 function R(x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(Math.round(x),Math.round(y),w,h); }

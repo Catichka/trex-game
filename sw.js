@@ -1,4 +1,4 @@
-const CACHE = 'trex-v2';
+const CACHE = 'trex-v3';
 const FILES = ['/', '/index.html', '/game.js', '/manifest.json'];
 
 self.addEventListener('install', function(e) {
