@@ -47,7 +47,13 @@ function askName(callback) {
 }
 
 const W = 480, H = 200, GROUND = 152, PIX = 3;
-const LEVEL_MS = 5 * 60 * 1000;
+var LEVEL_CFG = [
+  { dur:2*60*1000, speed:3.5, spawnI:105, minSpawnI:88  }, // L1 Grasslands  2 min
+  { dur:3*60*1000, speed:4.0, spawnI:82,  minSpawnI:65  }, // L2 Forest       3 min
+  { dur:3*60*1000, speed:4.5, spawnI:64,  minSpawnI:50  }, // L3 Ice          3 min
+  { dur:5*60*1000, speed:5.0, spawnI:52,  minSpawnI:32  }, // L4 Volcano      5 min
+  { dur:Infinity,  speed:5.5, spawnI:46,  minSpawnI:28  }, // L5 Endless
+];
 
 function resize() {
   const s = Math.min(window.innerWidth / W, window.innerHeight / H);
@@ -93,6 +99,7 @@ function sfxCatch()   { beep(600,'square',0.07,0.25); beep(800,'square',0.07,0.2
 function sfxPoints()  { beep(880,'square',0.06,0.18); beep(1100,'square',0.06,0.18,0.08); }
 function sfxDie()     { [400,300,220,150].forEach(function(f,i){beep(f,'square',0.14,0.4,i*0.13);}); }
 function sfxLevelUp() { [523,659,784,1047].forEach(function(f,i){beep(f,'square',0.15,0.28,i*0.1);}); }
+function sfxLavaLand(){ beep(90,'sawtooth',0.2,0.55); beep(140,'square',0.1,0.35,0.08); }
 
 function sfxRawrSmall() {
   freqSlide(80, 200, 'sawtooth', 0.28, 0.45);
@@ -205,6 +212,28 @@ function drawCaveman(x,y,f) {
   R(x+p,y+p*10,p*2,p,'#8b6020'); R(x+p*3,y+p*10,p*2,p,'#8b6020');
 }
 
+// ── Stegosaurus (chase target) ───────────────────────────────────
+function drawStego(x,y,f) {
+  var p=2; x=Math.round(x); y=Math.round(y);
+  var c='#8b7040', d='#5a4020', pl='#cc3030', pk='#aa1818';
+  // Plates along back (5 triangles)
+  [p*4,p*6,p*8,p*10,p*12].forEach(function(px){
+    ctx.fillStyle=pl; ctx.beginPath(); ctx.moveTo(x+px,y+p*3); ctx.lineTo(x+px+p,y); ctx.lineTo(x+px+p*2,y+p*3); ctx.fill();
+    ctx.fillStyle=pk; ctx.beginPath(); ctx.moveTo(x+px+1,y+p*2); ctx.lineTo(x+px+p,y); ctx.lineTo(x+px+p*2-1,y+p*2); ctx.fill();
+  });
+  // Body
+  R(x+p*2,y+p*3,p*13,p*4,c); R(x+p*3,y+p*3,p*11,p*2,d);
+  // Head (right)
+  R(x+p*13,y+p*2,p*3,p*3,c); R(x+p*15,y+p*3,p*2,p,d);
+  ctx.fillStyle='#fff'; ctx.fillRect(x+p*14,y+p*2,p,p);
+  ctx.fillStyle='#000'; ctx.fillRect(x+p*14+1,y+p*2+1,p-1,p-1);
+  // Tail (left, spiked)
+  R(x,y+p*4,p*3,p*2,c); R(x,y+p*3,p,p*2,d);
+  // Two visible legs (alternating)
+  if(f===0){R(x+p*5,y+p*7,p*2,p*3,d); R(x+p*11,y+p*6,p*2,p*4,d);}
+  else     {R(x+p*5,y+p*6,p*2,p*4,d); R(x+p*11,y+p*7,p*2,p*3,d);}
+}
+
 // ── Obstacles ────────────────────────────────────────────────────
 function drawCactus(x,y,big) {
   var p=PIX; x=Math.round(x); y=Math.round(y);
@@ -290,25 +319,25 @@ var THEMES = [
   { name:'GRASSLANDS', num:'1',
     skyT:'#2060d0',skyB:'#60b0ff',hillB:'#2a7020',hillF:'#3a9030',
     gT:'#5a9020',gnd:'#6ab030',gTex:'#3a6010',
-    obs:['cS','cL','pt'], cloud:'#e8f4ff',
+    obs:['cS','cS','cS','cL','pt','pt'], cloud:'#e8f4ff',
     drawExtra: function(sc){ drawGrassExtra(sc); }
   },
   { name:'DARK FOREST', num:'2',
     skyT:'#080e04',skyB:'#142808',hillB:'#0a1806',hillF:'#142e0a',
     gT:'#3a1a00',gnd:'#2a1200',gTex:'#5a2800',
-    obs:['st','mu','fl','pt'], cloud:'#202820',
+    obs:['st','st','mu','fl','mu','pt','cS'], cloud:'#202820',
     drawExtra: function(sc){ drawForestExtra(sc); }
   },
   { name:'ICE WORLD', num:'3',
     skyT:'#102840',skyB:'#2060a0',hillB:'#508090',hillF:'#80b8c8',
     gT:'#d0eeff',gnd:'#b0d8f0',gTex:'#90c0e0',
-    obs:['iS','iT','sb','pt'], cloud:'#c8e8ff',
+    obs:['iS','iT','iT','sb','pt','pt','iS'], cloud:'#c8e8ff',
     drawExtra: function(sc){ drawIceExtra(sc); }
   },
   { name:'VOLCANO', num:'4',
     skyT:'#200800',skyB:'#600808',hillB:'#2a0808',hillF:'#400808',
     gT:'#201008',gnd:'#180808',gTex:'#ff4400',
-    obs:['lS','lL','fg','pt'], cloud:'#402010',
+    obs:['lS','lL','fg','lL','pt','fg','lL'], cloud:'#402010',
     drawExtra: function(sc){ drawVolcanoExtra(sc); }
   },
   { name:'ENDLESS!', num:'∞',
@@ -321,8 +350,23 @@ var THEMES = [
 
 // ── Background extras per level ───────────────────────────────────
 function drawGrassExtra(sc) {
+  // Grass blades
   ctx.fillStyle='#5aba20';
   for(var i=0;i<28;i++){var gx=((i*22-sc*0.15)%(W+30)+W+30)%(W+30)-15; ctx.fillRect(Math.round(gx),GROUND-3,2,5); ctx.fillRect(Math.round(gx)+4,GROUND-5,2,7);}
+  // Wildflowers
+  var fclr=['#ff4488','#ff8800','#ffdd00','#ee44ff','#44aaff'];
+  for(var j=0;j<10;j++){
+    var fx=((j*52-sc*0.12)%(W+60)+W+60)%(W+60)-30;
+    ctx.fillStyle=fclr[j%5]; ctx.fillRect(Math.round(fx),GROUND-9,3,3);
+    ctx.fillStyle='#ffff88'; ctx.fillRect(Math.round(fx)+1,GROUND-11,1,2);
+    ctx.fillStyle='#5aba20'; ctx.fillRect(Math.round(fx)+1,GROUND-6,1,6);
+  }
+  // Background bushes (parallax)
+  ctx.fillStyle='#3a8010';
+  for(var k=0;k<6;k++){var bx=((k*90-sc*0.08)%(W+80)+W+80)%(W+80)-40; ctx.beginPath(); ctx.arc(Math.round(bx)+10,GROUND-12,12,0,Math.PI*2); ctx.fill();}
+  // Birds (tiny V shapes far away)
+  ctx.fillStyle='#1a3a7a';
+  for(var b=0;b<5;b++){var bx2=((b*110-sc*0.05)%(W+80)+W+80)%(W+80)-40; var by=18+b*7; ctx.fillRect(Math.round(bx2),by,3,1); ctx.fillRect(Math.round(bx2)+4,by,3,1); ctx.fillRect(Math.round(bx2)+2,by+1,2,1);}
 }
 function drawForestExtra(sc) {
   var tsc=sc*0.45;
@@ -331,26 +375,62 @@ function drawForestExtra(sc) {
     R(Math.round(tx)+8,GROUND-55,6,55,'#3a1a00');
     ctx.fillStyle='#0a2006'; ctx.beginPath(); ctx.arc(Math.round(tx)+11,GROUND-65,22,0,Math.PI*2); ctx.fill();
     ctx.fillStyle='#142e0a'; ctx.beginPath(); ctx.arc(Math.round(tx)+11,GROUND-80,15,0,Math.PI*2); ctx.fill();
+    // Glow at tree base
+    ctx.fillStyle='rgba(50,180,0,0.12)'; ctx.beginPath(); ctx.arc(Math.round(tx)+11,GROUND-20,10,0,Math.PI*2); ctx.fill();
   });
+  // Ground roots / mushrooms
   ctx.fillStyle='#3a1a00';
   for(var i=0;i<18;i++){var gx=((i*30-sc*0.15)%(W+40)+W+40)%(W+40)-20; ctx.fillRect(Math.round(gx),GROUND-2,8,3);}
+  // Background mushrooms
+  for(var m=0;m<6;m++){var mx=((m*80-sc*0.1)%(W+60)+W+60)%(W+60)-30; R(Math.round(mx)+1,GROUND-5,2,5,'#6a4020'); ctx.fillStyle='rgba(220,30,10,0.7)'; ctx.beginPath(); ctx.arc(Math.round(mx)+2,GROUND-5,5,0,Math.PI*2); ctx.fill();}
+  // Fireflies (glowing dots)
+  ctx.fillStyle='rgba(120,255,60,0.75)';
+  for(var f=0;f<8;f++){var ffx=((f*68+sc*0.18)%(W+40)+W+40)%(W+40)-20; var ffy=GROUND*0.35+Math.sin((sc*0.018+f*0.9))*22+f*8; ctx.fillRect(Math.round(ffx),Math.round(ffy),2,2);}
 }
 function drawIceExtra(sc) {
+  // Aurora bands at top
+  var aCols=['rgba(0,200,100,0.18)','rgba(0,130,220,0.18)','rgba(120,0,200,0.14)'];
+  aCols.forEach(function(ac,i){
+    for(var x=0;x<W;x+=6){var h2=Math.round(Math.sin(x*0.022+sc*0.006+i*2)*5); ctx.fillStyle=ac; ctx.fillRect(x,6+i*9+h2,6,10);}
+  });
+  // Hanging icicles from ceiling
+  ctx.fillStyle='rgba(160,230,255,0.82)';
+  for(var k=0;k<14;k++){var ix=((k*38-sc*0.08)%(W+40)+W+40)%(W+40)-20; var ih=7+Math.sin(k*1.9)*4; ctx.beginPath(); ctx.moveTo(Math.round(ix),0); ctx.lineTo(Math.round(ix)+4,ih); ctx.lineTo(Math.round(ix)+8,0); ctx.fill();}
+  // Ice crystals on ground
   ctx.fillStyle='rgba(180,240,255,0.5)';
   for(var i=0;i<22;i++){var gx=((i*25-sc*0.1)%(W+30)+W+30)%(W+30)-15; ctx.fillRect(Math.round(gx),GROUND,10,2); ctx.fillRect(Math.round(gx)+2,GROUND-1,6,2);}
   // Snowfall
-  ctx.fillStyle='rgba(220,240,255,0.6)';
-  for(var j=0;j<15;j++){var sx=((j*37+sc*0.3)%(W+10)+W+10)%(W+10)-5; var sy=(j*17+sc*0.5)%GROUND; ctx.fillRect(Math.round(sx),Math.round(sy),2,2);}
+  for(var j=0;j<25;j++){
+    ctx.fillStyle=j%3===0?'rgba(220,240,255,0.85)':'rgba(200,230,255,0.5)';
+    var sx=((j*31+sc*0.28)%(W+10)+W+10)%(W+10)-5;
+    var sy=(j*19+sc*0.45)%GROUND;
+    ctx.fillRect(Math.round(sx),Math.round(sy),j%4===0?2:1,j%4===0?2:1);
+  }
+  // Background ice pillars
+  ctx.fillStyle='rgba(160,220,255,0.3)';
+  for(var p=0;p<5;p++){var px=((p*100-sc*0.06)%(W+80)+W+80)%(W+80)-40; var ph=30+p*8; ctx.fillRect(Math.round(px),GROUND-ph,10,ph);}
 }
 function drawVolcanoExtra(sc) {
   var vsc=sc*0.18;
+  // Glowing sky
+  ctx.fillStyle='rgba(180,30,0,0.08)';
+  for(var y=0;y<GROUND*0.5;y+=8){ctx.fillRect(0,y,W,4);}
+  // Volcanoes
   [100,300].forEach(function(bx){
     var vx=((bx-vsc%(W+200)+W+200)%(W+200))-100;
     ctx.fillStyle='#180808'; ctx.beginPath(); ctx.moveTo(Math.round(vx)-70,GROUND); ctx.lineTo(Math.round(vx),GROUND-90); ctx.lineTo(Math.round(vx)+70,GROUND); ctx.fill();
-    ctx.fillStyle='rgba(255,80,0,0.6)'; ctx.beginPath(); ctx.arc(Math.round(vx),GROUND-90,10,0,Math.PI*2); ctx.fill();
+    // Lava rim glow
+    ctx.fillStyle='rgba(255,80,0,0.65)'; ctx.beginPath(); ctx.arc(Math.round(vx),GROUND-90,10,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(255,200,0,0.5)'; ctx.beginPath(); ctx.arc(Math.round(vx),GROUND-90,5,0,Math.PI*2); ctx.fill();
+    // Smoke puffs rising
+    for(var sp=0;sp<4;sp++){var soff=(sc*0.35+sp*40)%80; ctx.fillStyle='rgba(60,40,40,'+(0.35-sp*0.07)+')'; ctx.beginPath(); ctx.arc(Math.round(vx)+(sp%2?4:-4),GROUND-95-soff,4+sp*1.5,0,Math.PI*2); ctx.fill();}
   });
-  ctx.fillStyle='#ff4400';
-  for(var i=0;i<10;i++){var gx=((i*50-sc*0.3)%(W+60)+W+60)%(W+60)-30; ctx.fillRect(Math.round(gx),GROUND+5,3,3); ctx.fillRect(Math.round(gx)+15,GROUND+9,4,2);}
+  // Lava rivers on ground
+  ctx.fillStyle='rgba(255,60,0,0.4)';
+  for(var i=0;i<10;i++){var gx=((i*50-sc*0.3)%(W+60)+W+60)%(W+60)-30; ctx.fillRect(Math.round(gx),GROUND+4,18,3); ctx.fillStyle='rgba(255,150,0,0.3)'; ctx.fillRect(Math.round(gx)+4,GROUND+5,8,2); ctx.fillStyle='rgba(255,60,0,0.4)';}
+  // Embers floating
+  ctx.fillStyle='rgba(255,130,0,0.7)';
+  for(var e=0;e<10;e++){var ex=((e*55+sc*0.22)%(W+30)+W+30)%(W+30)-15; var ey=GROUND*0.2+Math.sin(sc*0.02+e*0.8)*25+e*12; if(ey>0&&ey<GROUND-10)ctx.fillRect(Math.round(ex),Math.round(ey),2,2);}
 }
 function drawEndlessExtra(sc) {
   // Stars + neon ground
@@ -448,7 +528,7 @@ function spawnObs(th) {
   var kind=th.obs[Math.floor(Math.random()*th.obs.length)];
   var sz=OBJ[kind]||OBJ.cS;
   var oy=GROUND-sz.h;
-  if(kind==='pt'){var hs=[GROUND-sz.h-18,GROUND-sz.h-38,GROUND-sz.h-58];oy=hs[Math.floor(Math.random()*3)];}
+  if(kind==='pt'){var allHts=[GROUND-sz.h-18,GROUND-sz.h-38,GROUND-sz.h-58]; var numHts=Math.min(levelIdx+1,3); oy=allHts[Math.floor(Math.random()*numHts)];}
   obstacles.push({kind:kind,x:W+20,y:oy,w:sz.w,h:sz.h,bitable:kind==='pt',wT:0,wF:0,flee:false});
   // Occasional paired ground obstacle
   if((kind==='cS'||kind==='st'||kind==='lS')&&Math.random()<0.28){
@@ -459,8 +539,9 @@ function spawnObs(th) {
 }
 
 function spawnChase() {
-  var kind=Math.random()<0.5?'sd':'cm';
-  var sw=kind==='sd'?PIX*6:PIX*5, sh=kind==='sd'?PIX*7:PIX*11;
+  var r=Math.random(), kind=r<0.34?'sd':r<0.67?'cm':'sg';
+  var sw=kind==='sd'?PIX*6:kind==='cm'?PIX*5:32;
+  var sh=kind==='sd'?PIX*7:kind==='cm'?PIX*11:20;
   chaseables.push({kind:kind,x:W+50,y:GROUND-sh,w:sw,h:sh,rF:0,rT:0,vy:0,onGround:true,scared:false});
 }
 
@@ -488,14 +569,63 @@ function updateAndDrawObs(spd) {
 
 function updateAndDrawChase(spd) {
   chaseables.forEach(function(c){
-    var mv=c.scared?spd+3.5:spd*0.55;
+    var baseSpd=c.kind==='sg'?spd*0.62:spd*0.55; // stego moves a bit faster (harder to catch)
+    var mv=c.scared?spd+3.5:baseSpd;
     c.x-=mv;
     if(c.kind==='cm'&&c.onGround&&Math.random()<0.004){c.vy=-7;c.onGround=false;}
     if(!c.onGround){c.vy+=0.5;c.y+=c.vy;var fl=GROUND-c.h;if(c.y>=fl){c.y=fl;c.onGround=true;c.vy=0;}}
     c.rT++;if(c.rT>=8){c.rT=0;c.rF=1-c.rF;}
-    if(c.kind==='sd')drawSmallDino(c.x,c.y,c.rF); else drawCaveman(c.x,c.y,c.rF);
+    if(c.kind==='sd')drawSmallDino(c.x,c.y,c.rF);
+    else if(c.kind==='sg')drawStego(c.x,c.y,c.rF);
+    else drawCaveman(c.x,c.y,c.rF);
   });
   chaseables=chaseables.filter(function(c){return c.x>-80;});
+}
+
+// ── Lava eruption projectiles (Level 4 only) ─────────────────────
+var lavaRocks=[], eruptT=0;
+
+function updateLavaRocks(spd) {
+  eruptT++;
+  var interval=Math.max(165, 300-tick*0.08);
+  if(eruptT>=interval){
+    eruptT=0;
+    lavaRocks.push({x:160+Math.random()*240, y:-14, vy:0, phase:'warn', timer:55});
+  }
+  for(var i=lavaRocks.length-1;i>=0;i--){
+    var r=lavaRocks[i];
+    r.x-=spd;
+    if(r.phase==='warn'){
+      r.timer--;
+      if(r.timer<=0)r.phase='fall';
+      var a=0.28+0.32*Math.abs(Math.sin(tick*0.18));
+      ctx.fillStyle='rgba(255,100,0,'+a+')'; ctx.fillRect(Math.round(r.x)-13,GROUND-5,26,6);
+      ctx.fillStyle='rgba(255,230,0,'+(a*0.6)+')'; ctx.fillRect(Math.round(r.x)-6,GROUND-3,12,4);
+    } else if(r.phase==='fall'){
+      r.vy+=0.42; r.y+=r.vy;
+      var rx=Math.round(r.x), ry=Math.round(r.y);
+      ctx.fillStyle='rgba(255,90,0,0.55)'; ctx.fillRect(rx-2,ry-PIX*4,4,PIX*4);
+      ctx.fillStyle='#ff6600'; ctx.fillRect(rx-PIX,ry,PIX*2,PIX*2);
+      ctx.fillStyle='#ffcc00'; ctx.fillRect(rx-1,ry+1,3,3);
+      if(r.y>=GROUND-PIX*3){r.y=GROUND-PIX*3; r.phase='land'; r.timer=72; sfxLavaLand();}
+    } else {
+      var rx=Math.round(r.x), ry=Math.round(r.y);
+      ctx.fillStyle='#cc4400'; ctx.fillRect(rx-PIX*2,ry-PIX,PIX*5,PIX*3);
+      ctx.fillStyle='#883300'; ctx.fillRect(rx-PIX,ry-PIX+2,PIX*3,PIX*2);
+      if(r.timer>40){var ga=(r.timer-40)/40*0.55; ctx.fillStyle='rgba(255,140,0,'+ga+')'; ctx.fillRect(rx-PIX*3,ry-PIX*2,PIX*6,PIX*4);}
+      r.timer--;
+      if(r.timer<=0||r.x<-25){lavaRocks.splice(i,1);}
+    }
+  }
+}
+
+function checkLavaCollision(){
+  var mg=4, px=player.hitX+mg, py=player.hitY+mg, pw=player.hitW-mg*2, ph=player.hitH-mg*2;
+  for(var i=0;i<lavaRocks.length;i++){
+    var r=lavaRocks[i]; if(r.phase!=='land')continue;
+    if(hits(px,py,pw,ph, r.x-PIX*2+mg, r.y-PIX+mg, PIX*5-mg*2, PIX*3-mg*2))return true;
+  }
+  return false;
 }
 
 // ── Collision ────────────────────────────────────────────────────
@@ -520,7 +650,7 @@ function checkCollisions() {
     var c=chaseables[j];
     if(hits(px,py,pw,ph,c.x+2,c.y+2,c.w-4,c.h-4)){
       chaseables.splice(j,1);
-      var pts=c.kind==='cm'?40:25;
+      var pts=c.kind==='cm'?40:c.kind==='sg'?35:25;
       score+=pts; addPopup(c.x+c.w/2,c.y-4,'+'+pts+' CAUGHT!','#88ff88'); sfxCatch();
     }
   }
@@ -595,10 +725,11 @@ if(levelIdx<0||levelIdx>4)levelIdx=0;
 var scroll=0, tick=0, gameSpeed=4.0, levelStart=0;
 
 function resetLevel() {
+  var cfg=LEVEL_CFG[levelIdx];
   player.reset();
-  obstacles.length=0; chaseables.length=0; popups.length=0;
-  spawnT=0; spawnI=90; chaseT=0; scroll=0; tick=0; score=0; scoreTick=0; flash=0; rawrCD=0;
-  gameSpeed=3.5+levelIdx*0.5;
+  obstacles.length=0; chaseables.length=0; popups.length=0; lavaRocks.length=0;
+  spawnT=0; spawnI=cfg.spawnI; chaseT=0; scroll=0; tick=0; score=0; scoreTick=0; flash=0; rawrCD=0; eruptT=0;
+  gameSpeed=cfg.speed;
   levelStart=performance.now();
 }
 
@@ -775,23 +906,26 @@ function loop() {
     tick++; scroll+=gameSpeed;
     clouds.forEach(function(c){c.x-=gameSpeed*0.12;if(c.x<-(c.w+20))c.x=W+20;});
 
-    spawnT++;if(spawnT>=spawnI){spawnT=0;spawnI=Math.max(36,spawnI-1);spawnObs(th);}
+    var lcfg=LEVEL_CFG[levelIdx];
+    spawnT++;if(spawnT>=spawnI){spawnT=0;if(levelIdx>=3)spawnI=Math.max(lcfg.minSpawnI,spawnI-1);spawnObs(th);}
     chaseT++;if(chaseT>=chaseI){chaseT=0;spawnChase();}
-    if(tick%280===0)gameSpeed=Math.min(levelIdx===4?22:13,gameSpeed+0.35);
+    if(levelIdx>=3&&tick%280===0)gameSpeed=Math.min(levelIdx===4?22:13,gameSpeed+0.35);
     if(rawrCD>0)rawrCD--;
 
     updateAndDrawObs(gameSpeed);
     updateAndDrawChase(gameSpeed);
+    if(levelIdx===3)updateLavaRocks(gameSpeed);
     player.update(); player.draw();
     updateScore();
-    drawHUD(th,Math.max(0,LEVEL_MS-(performance.now()-levelStart)));
+    var lvDur=LEVEL_CFG[levelIdx].dur;
+    drawHUD(th,Math.max(0,lvDur-(performance.now()-levelStart)));
 
     // Level complete check (not endless)
-    if(levelIdx<4&&performance.now()-levelStart>=LEVEL_MS){
+    if(levelIdx<4&&performance.now()-levelStart>=lvDur){
       state=ST.LVLDONE; sfxLevelUp(); stopMusic();
       if(score>hiScore){hiScore=score;localStorage.setItem('trex-hi',hiScore);}
     }
-    if(checkCollisions()){
+    if(checkCollisions()||(levelIdx===3&&checkLavaCollision())){
       sfxDie(); stopMusic();
       if(score>hiScore){hiScore=score;localStorage.setItem('trex-hi',hiScore);}
       lastScore=score;
