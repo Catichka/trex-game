@@ -156,13 +156,26 @@ const SONGS = [
    [440,.09],[0,.04],[494,.09],[0,.04],[523,.09],[0,.04],[587,.18],[0,.08],[440,.09],[0,.04],[415,.09],[0,.04],[440,.3],[0,.14]],
 ];
 
+function chipNote(freq, dur) {
+  var ac=getAC(), o=ac.createOscillator(), g=ac.createGain();
+  o.connect(g); g.connect(ac.destination);
+  o.type='triangle'; o.frequency.value=freq;
+  var t=ac.currentTime, rel=Math.max(dur*0.78, dur-0.05);
+  g.gain.setValueAtTime(0.001,t);
+  g.gain.linearRampToValueAtTime(0.18, t+0.012);  // fast attack
+  g.gain.setValueAtTime(0.11, t+0.03);             // decay to sustain
+  g.gain.setValueAtTime(0.11, t+rel);              // hold sustain
+  g.gain.linearRampToValueAtTime(0.001, t+dur*0.97); // release
+  o.start(t); o.stop(t+dur+0.02);
+}
+
 let musicOn=false, musicIdx=0, musicTimer=null, musicLevel=0;
 function musicTick() {
   if (!musicOn) return;
   try {
     var song = SONGS[musicLevel] || SONGS[0];
     var note = song[musicIdx++ % song.length];
-    if (note[0] > 0) beep(note[0], 'square', note[1]*0.82, 0.13);
+    if (note[0] > 0) chipNote(note[0], note[1]*0.88);
     musicTimer = setTimeout(musicTick, note[1]*1000);
   } catch(e) { musicTimer = setTimeout(musicTick, 250); }
 }
