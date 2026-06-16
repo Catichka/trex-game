@@ -48,7 +48,7 @@ function askName(callback) {
 
 const W = 480, H = 200, GROUND = 152, PIX = 3;
 var LEVEL_CFG = [
-  { dur:2*60*1000, speed:3.5, spawnI:105, minSpawnI:88  }, // L1 Grasslands  2 min
+  { dur:1*60*1000, speed:3.5, spawnI:105, minSpawnI:88  }, // L1 Grasslands  1 min
   { dur:3*60*1000, speed:4.0, spawnI:82,  minSpawnI:65  }, // L2 Forest       3 min
   { dur:3*60*1000, speed:4.5, spawnI:64,  minSpawnI:50  }, // L3 Ice          3 min
   { dur:Infinity,  speed:5.0, spawnI:52,  minSpawnI:32  }, // L4 Volcano      endless
@@ -264,20 +264,29 @@ function drawStego(x,y,f) {
 function drawCactus(x,y,big) {
   var p=PIX; x=Math.round(x); y=Math.round(y);
   if (big) {
-    R(x+p*2,y,    p*2,p*9,'#207020'); R(x,y+p*2,   p*2,p*4,'#207020');
-    R(x,    y+p*2,p*3,p*2,'#207020'); R(x+p*4,y+p*3,p*2,p*3,'#207020');
-    R(x+p*4,y+p*3,p*3,p*2,'#207020'); R(x+p,y+p*7, p*4,p*2,'#207020');
-    R(x+p*3,y,    p,  p*9,'#104010');
+    R(x+p*2,y,    p*2,p*9,'#0e4a10'); R(x,y+p*2,   p*2,p*4,'#0e4a10');
+    R(x,    y+p*2,p*3,p*2,'#0e4a10'); R(x+p*4,y+p*3,p*2,p*3,'#0e4a10');
+    R(x+p*4,y+p*3,p*3,p*2,'#0e4a10'); R(x+p,y+p*7, p*4,p*2,'#0e4a10');
+    R(x+p*3,y,    p,  p*9,'#062006');
   } else {
-    R(x+p,  y,    p*2,p*7,'#207020');
-    R(x,    y+p*2,p,  p*3,'#207020'); R(x+p*3,y+p*3,p,p*2,'#207020');
-    R(x+p*2,y,    p,  p*7,'#104010');
+    R(x+p,  y,    p*2,p*7,'#0e4a10');
+    R(x,    y+p*2,p,  p*3,'#0e4a10'); R(x+p*3,y+p*3,p,p*2,'#0e4a10');
+    R(x+p*2,y,    p,  p*7,'#062006');
   }
 }
 function drawRock(x,y,big) {
   var p=PIX; x=Math.round(x); y=Math.round(y);
   if (big){R(x+p,y+p*2,p*5,p*3,'#777');R(x+p*2,y,p*3,p*5,'#777');R(x+p*2,y,p*2,p*3,'#999');R(x+p,y+p*3,p*2,p*2,'#555');}
   else    {R(x+p,y+p,  p*3,p*2,'#777');R(x+p*2,y,p*2,p*3,'#777');R(x+p*2,y+p,p,p*2,'#999');}
+}
+function drawGrassLog(x,y) {
+  var p=PIX; x=Math.round(x); y=Math.round(y);
+  R(x,    y+p,  p*9,p*2,'#6a3a10');  // log body
+  R(x,    y,    p*9,p,  '#8a5020');  // top highlight
+  R(x,    y,    p*2,p*3,'#3a1a08'); // left end cap
+  R(x+p*7,y,    p*2,p*3,'#3a1a08'); // right end cap
+  ctx.fillStyle='#4a2808';
+  ctx.fillRect(x+p*2,y+p,p,p); ctx.fillRect(x+p*4,y+p,p,p); ctx.fillRect(x+p*6,y+p,p,p);
 }
 function drawStump(x,y) {
   var p=PIX; x=Math.round(x); y=Math.round(y);
@@ -345,7 +354,7 @@ var THEMES = [
   { name:'GRASSLANDS', num:'1',
     skyT:'#2060d0',skyB:'#60b0ff',hillB:'#2a7020',hillF:'#3a9030',
     gT:'#5a9020',gnd:'#6ab030',gTex:'#3a6010',
-    obs:['cS','cS','cS','cL','pt','pt'], cloud:'#e8f4ff',
+    obs:['cS','cL','rS','rL','gl','gl','rS','pt'], cloud:'#e8f4ff',
     drawExtra: function(sc){ drawGrassExtra(sc); }
   },
   { name:'DARK FOREST', num:'2',
@@ -387,9 +396,6 @@ function drawGrassExtra(sc) {
     ctx.fillStyle='#ffff88'; ctx.fillRect(Math.round(fx)+1,GROUND-11,1,2);
     ctx.fillStyle='#5aba20'; ctx.fillRect(Math.round(fx)+1,GROUND-6,1,6);
   }
-  // Background bushes (parallax)
-  ctx.fillStyle='#3a8010';
-  for(var k=0;k<6;k++){var bx=((k*90-sc*0.08)%(W+80)+W+80)%(W+80)-40; ctx.beginPath(); ctx.arc(Math.round(bx)+10,GROUND-12,12,0,Math.PI*2); ctx.fill();}
   // Birds (tiny V shapes far away)
   ctx.fillStyle='#1a3a7a';
   for(var b=0;b<5;b++){var bx2=((b*110-sc*0.05)%(W+80)+W+80)%(W+80)-40; var by=18+b*7; ctx.fillRect(Math.round(bx2),by,3,1); ctx.fillRect(Math.round(bx2)+4,by,3,1); ctx.fillRect(Math.round(bx2)+2,by+1,2,1);}
@@ -544,6 +550,7 @@ var spawnT=0, spawnI=90, chaseT=0, chaseI=550;
 
 var OBJ = {
   cS:{w:PIX*4,h:PIX*7},  cL:{w:PIX*6,h:PIX*9},
+  rS:{w:PIX*5,h:PIX*4},  rL:{w:PIX*7,h:PIX*5}, gl:{w:PIX*9,h:PIX*3},
   st:{w:PIX*6,h:PIX*7},  mu:{w:PIX*6,h:PIX*7}, fl:{w:PIX*8,h:PIX*7},
   iS:{w:PIX*5,h:PIX*5},  iT:{w:PIX*5,h:PIX*8}, sb:{w:PIX*6,h:PIX*6},
   lS:{w:PIX*5,h:PIX*5},  lL:{w:PIX*7,h:PIX*7}, fg:{w:PIX*6,h:PIX*8},
@@ -578,6 +585,9 @@ function updateAndDrawObs(spd) {
     switch(o.kind){
       case 'cS': drawCactus(o.x,o.y,false); break;
       case 'cL': drawCactus(o.x,o.y,true);  break;
+      case 'rS': drawRock(o.x,o.y,false);   break;
+      case 'rL': drawRock(o.x,o.y,true);    break;
+      case 'gl': drawGrassLog(o.x,o.y);     break;
       case 'st': drawStump(o.x,o.y);         break;
       case 'mu': drawMushroom(o.x,o.y);      break;
       case 'fl': drawFernLog(o.x,o.y);       break;
