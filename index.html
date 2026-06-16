@@ -20,15 +20,51 @@ html, body {
   -webkit-user-select: none;
   user-select: none;
 }
-canvas {
-  display: block;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
+canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+#nameBox {
+  display: none;
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,20,0.92);
+  flex-direction: column; align-items: center; justify-content: center;
+  z-index: 10;
+  touch-action: auto;
+}
+#nameBox .card {
+  background: #0a0a2e;
+  border: 2px solid #ffd700;
+  padding: 28px 32px;
+  text-align: center;
+  font-family: monospace;
+}
+#nameBox h2 { color: #ffd700; font-size: 20px; margin-bottom: 6px; }
+#nameBox p  { color: #aaa; font-size: 12px; margin-bottom: 18px; }
+#nameInput {
+  font-size: 18px; padding: 10px; width: 180px; text-align: center;
+  background: #000; color: #fff; border: 2px solid #ffd700;
+  font-family: monospace; display: block; margin: 0 auto 16px;
+  touch-action: auto;
+  -webkit-user-select: text; user-select: text;
+}
+#nameBtn {
+  font-size: 14px; padding: 10px 28px;
+  background: #ffd700; color: #000;
+  border: none; font-family: monospace; font-weight: bold;
+  cursor: pointer; touch-action: auto;
 }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
+
+<div id="nameBox">
+  <div class="card">
+    <h2>ENTER YOUR NAME</h2>
+    <p>So you can compete on the leaderboard!</p>
+    <input id="nameInput" type="text" maxlength="12" placeholder="Your name" autocomplete="off">
+    <button id="nameBtn">LET'S GO! 🦖</button>
+  </div>
+</div>
+
 <script>
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 </script>

@@ -3,6 +3,49 @@ const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
+// ── Leaderboard (Supabase) ───────────────────────────────────────
+var SB_URL = 'https://zaujmeukeugxvjtzaspp.supabase.co';
+var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphdWptZXVrZXVneHZqdHphc3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1OTY0MjMsImV4cCI6MjA5NzE3MjQyM30.wSdYoErr0mt7ctskewt537O_eARXlm6SsKr2gMnMuHU';
+var SB_HDR = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
+
+var playerName = localStorage.getItem('trex-name') || '';
+var topScores = [];
+var boardReady = false;
+var boardFromDead = false;
+var lastScore = 0;
+
+function submitScore(name, score) {
+  fetch(SB_URL + '/rest/v1/scores', {
+    method: 'POST', headers: SB_HDR,
+    body: JSON.stringify({ name: name, score: score })
+  }).catch(function(){});
+}
+
+function loadBoard(callback) {
+  boardReady = false;
+  fetch(SB_URL + '/rest/v1/scores?select=name,score&order=score.desc&limit=10', { headers: SB_HDR })
+    .then(function(r){ return r.json(); })
+    .then(function(d){ topScores = Array.isArray(d) ? d : []; boardReady = true; if(callback)callback(); })
+    .catch(function(){ topScores = []; boardReady = true; if(callback)callback(); });
+}
+
+function askName(callback) {
+  var box = document.getElementById('nameBox');
+  box.style.display = 'flex';
+  var inp = document.getElementById('nameInput');
+  inp.value = '';
+  setTimeout(function(){ inp.focus(); }, 100);
+  document.getElementById('nameBtn').onclick = confirmName;
+  inp.onkeydown = function(e){ if(e.key==='Enter') confirmName(); };
+  function confirmName() {
+    var n = inp.value.trim() || 'Dino Kid';
+    playerName = n.substring(0, 12);
+    localStorage.setItem('trex-name', playerName);
+    box.style.display = 'none';
+    if(callback) callback();
+  }
+}
+
 const W = 480, H = 200, GROUND = 152, PIX = 3;
 const LEVEL_MS = 5 * 60 * 1000;
 
@@ -545,7 +588,7 @@ function drawHUD(th,timeLeft) {
 }
 
 // ── Game state ───────────────────────────────────────────────────
-var ST={TITLE:0,PLAY:1,LVLDONE:2,DEAD:3};
+var ST={TITLE:0,PLAY:1,LVLDONE:2,DEAD:3,BOARD:4};
 var state=ST.TITLE;
 var levelIdx=parseInt(localStorage.getItem('trex-lv')||'0',10);
 if(levelIdx<0||levelIdx>4)levelIdx=0;
@@ -559,9 +602,25 @@ function resetLevel() {
   levelStart=performance.now();
 }
 
+function isOnHallOfFameBtn(ex,ey) {
+  var r=canvas.getBoundingClientRect(), s=canvas.width/r.width;
+  var cx=(ex-r.left)*s, cy=(ey-r.top)*s;
+  return cx>W/2-60&&cx<W/2+60&&cy>H/2+56&&cy<H/2+74;
+}
+
 function doTap(ex,ey) {
   getAC().state==='suspended'&&getAC().resume();
-  if(state===ST.TITLE){state=ST.PLAY;resetLevel();startMusic(levelIdx);return;}
+  if(state===ST.BOARD){
+    boardFromDead=false; state=ST.TITLE; return;
+  }
+  if(state===ST.TITLE){
+    if(ex!==undefined&&isOnHallOfFameBtn(ex,ey)){
+      boardFromDead=false; state=ST.BOARD; loadBoard(); return;
+    }
+    function startGame(){ state=ST.PLAY; resetLevel(); startMusic(levelIdx); }
+    if(!playerName){ askName(startGame); } else { startGame(); }
+    return;
+  }
   if(state===ST.DEAD){state=ST.PLAY;resetLevel();startMusic(levelIdx);return;}
   if(state===ST.LVLDONE){
     levelIdx=Math.min(levelIdx+1,4);
@@ -622,18 +681,21 @@ function drawTitle() {
   R(0,0,W,GROUND,THEMES[0].skyT); R(0,GROUND*0.5,W,GROUND*0.5,THEMES[0].skyB);
   R(0,GROUND,W,H-GROUND,THEMES[0].gnd); R(0,GROUND,W,4,THEMES[0].gT);
   drawDino(50,GROUND-DINO_H,0,false,false,false);
-  R(W/2-152,H/2-68,304,136,'rgba(0,10,40,0.82)');
-  ctx.strokeStyle='#ffff44'; ctx.lineWidth=2; ctx.strokeRect(W/2-152,H/2-68,304,136); ctx.lineWidth=1;
+  R(W/2-152,H/2-72,304,144,'rgba(0,10,40,0.82)');
+  ctx.strokeStyle='#ffff44'; ctx.lineWidth=2; ctx.strokeRect(W/2-152,H/2-72,304,144); ctx.lineWidth=1;
   ctx.textAlign='center';
-  ctx.fillStyle='#ffff44'; ctx.font='bold 24px monospace'; ctx.fillText('T-REX RUN!',W/2,H/2-44);
-  ctx.fillStyle='#88ff88'; ctx.font='bold 8px monospace'; ctx.fillText('4 WORLDS + ENDLESS  ✦  JUMP ✦ BITE ✦ RAWR!',W/2,H/2-26);
+  ctx.fillStyle='#ffff44'; ctx.font='bold 24px monospace'; ctx.fillText('T-REX RUN!',W/2,H/2-48);
+  ctx.fillStyle='#88ff88'; ctx.font='bold 8px monospace'; ctx.fillText('4 WORLDS + ENDLESS  ✦  JUMP ✦ BITE ✦ RAWR!',W/2,H/2-32);
   ctx.fillStyle='#ccc'; ctx.font='8px monospace';
-  ctx.fillText('TAP = jump   Double-tap = double jump',W/2,H/2-10);
-  ctx.fillText('Jump into pterodactyls to BITE them for +50pts',W/2,H/2+4);
-  ctx.fillText('Catch small dinos (+25) & cavemen (+40)!',W/2,H/2+18);
-  ctx.fillText('Tap RAWR! button to scare enemies away',W/2,H/2+32);
-  ctx.fillText('Hold RAWR! for BIG RAAAWR! — scares everything!',W/2,H/2+46);
-  ctx.fillStyle='#88ffff'; ctx.font='bold 11px monospace'; ctx.fillText('TAP TO START',W/2,H/2+64);
+  ctx.fillText('TAP = jump   Double-tap = double jump',W/2,H/2-16);
+  ctx.fillText('Jump into pterodactyls to BITE them for +50pts',W/2,H/2-2);
+  ctx.fillText('Catch small dinos (+25) & cavemen (+40)!',W/2,H/2+12);
+  ctx.fillText('Tap RAWR! button to scare enemies away',W/2,H/2+26);
+  ctx.fillStyle='#88ffff'; ctx.font='bold 11px monospace'; ctx.fillText('TAP TO START',W/2,H/2+46);
+  // Hall of Fame button
+  R(W/2-60,H/2+56,120,18,'rgba(255,215,0,0.2)');
+  ctx.strokeStyle='#ffd700'; ctx.lineWidth=1; ctx.strokeRect(W/2-60,H/2+56,120,18);
+  ctx.fillStyle='#ffd700'; ctx.font='bold 9px monospace'; ctx.fillText('🏆 HALL OF FAME',W/2,H/2+68);
   ctx.textAlign='left';
 }
 
@@ -656,8 +718,46 @@ function drawDead() {
   ctx.fillStyle='#ff4444'; ctx.font='bold 17px monospace'; ctx.fillText('GAME OVER',W/2,H/2-20);
   ctx.fillStyle='#ffff88'; ctx.font='9px monospace';
   var isHi=score>=hiScore&&score>0;
-  ctx.fillText('Score: '+score+(isHi?' ★ NEW BEST!':''),W/2,H/2+2);
-  ctx.fillStyle='#88ff88'; ctx.font='bold 10px monospace'; ctx.fillText('TAP TO RETRY',W/2,H/2+26);
+  ctx.fillText('Score: '+score+(isHi?' ★ NEW BEST!':''),W/2,H/2-4);
+  ctx.fillStyle='#aaa'; ctx.font='8px monospace'; ctx.fillText('Loading leaderboard...',W/2,H/2+10);
+  ctx.fillStyle='#88ff88'; ctx.font='bold 10px monospace'; ctx.fillText('TAP TO RETRY',W/2,H/2+28);
+  ctx.textAlign='left';
+}
+
+function drawBoard() {
+  R(0,0,W,H,'rgba(0,0,20,0.96)');
+  ctx.textAlign='center';
+  // Title
+  ctx.fillStyle='#ffd700'; ctx.font='bold 15px monospace'; ctx.fillText('🏆 HALL OF FAME 🏆',W/2,18);
+  ctx.fillStyle='#555'; ctx.font='8px monospace'; ctx.fillText('TOP 10 ALL DEVICES',W/2,30);
+  // Divider
+  ctx.fillStyle='#ffd700'; ctx.fillRect(W/2-120,34,240,1);
+
+  if (!boardReady) {
+    ctx.fillStyle='#aaa'; ctx.font='9px monospace'; ctx.fillText('Loading...',W/2,H/2);
+  } else if (topScores.length===0) {
+    ctx.fillStyle='#aaa'; ctx.font='9px monospace'; ctx.fillText('No scores yet — be the first!',W/2,H/2);
+  } else {
+    var medals=['🥇','🥈','🥉'];
+    topScores.forEach(function(s,i){
+      var y=48+i*14;
+      var isMe=boardFromDead&&s.score===lastScore&&s.name===playerName;
+      ctx.fillStyle= i===0?'#ffd700': i===1?'#c0c0c0': i===2?'#cd7f32': isMe?'#88ff88':'#dddddd';
+      ctx.font=(isMe?'bold ':'')+'9px monospace';
+      var medal=i<3?medals[i]:(i+1)+'.';
+      var nameStr=s.name.substring(0,10);
+      var pts=String(s.score).padStart(5,'0');
+      ctx.fillText(medal+' '+nameStr+'  '+pts,W/2,y);
+    });
+  }
+
+  ctx.fillStyle='#333'; ctx.fillRect(W/2-120,H-34,240,1);
+  if(boardFromDead){
+    ctx.fillStyle='#ffff88'; ctx.font='8px monospace';
+    ctx.fillText('Your score: '+lastScore+(playerName?' — '+playerName:''),W/2,H-22);
+  }
+  ctx.fillStyle='#88ffff'; ctx.font='bold 10px monospace';
+  ctx.fillText(boardFromDead?'TAP TO PLAY AGAIN':'TAP TO GO BACK',W/2,H-8);
   ctx.textAlign='left';
 }
 
@@ -692,12 +792,24 @@ function loop() {
       if(score>hiScore){hiScore=score;localStorage.setItem('trex-hi',hiScore);}
     }
     if(checkCollisions()){
-      state=ST.DEAD; sfxDie(); stopMusic();
+      sfxDie(); stopMusic();
       if(score>hiScore){hiScore=score;localStorage.setItem('trex-hi',hiScore);}
+      lastScore=score;
+      // Submit score then show board
+      function goToBoard(){ boardFromDead=true; state=ST.BOARD; loadBoard(); }
+      if(!playerName){
+        state=ST.DEAD;
+        askName(function(){ submitScore(playerName,lastScore); goToBoard(); });
+      } else {
+        state=ST.DEAD;
+        submitScore(playerName,lastScore);
+        setTimeout(goToBoard, 1200);
+      }
     }
   }
 
   if(state===ST.LVLDONE){updateAndDrawObs(0);updateAndDrawChase(0);player.draw();drawLevelDone(th);}
   if(state===ST.DEAD){player.draw();drawDead();}
+  if(state===ST.BOARD){drawBoard();}
 }
 requestAnimationFrame(loop);
