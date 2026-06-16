@@ -51,7 +51,7 @@ var LEVEL_CFG = [
   { dur:2*60*1000, speed:3.5, spawnI:105, minSpawnI:88  }, // L1 Grasslands  2 min
   { dur:3*60*1000, speed:4.0, spawnI:82,  minSpawnI:65  }, // L2 Forest       3 min
   { dur:3*60*1000, speed:4.5, spawnI:64,  minSpawnI:50  }, // L3 Ice          3 min
-  { dur:5*60*1000, speed:5.0, spawnI:52,  minSpawnI:32  }, // L4 Volcano      5 min
+  { dur:Infinity,  speed:5.0, spawnI:52,  minSpawnI:32  }, // L4 Volcano      endless
   { dur:Infinity,  speed:5.5, spawnI:46,  minSpawnI:28  }, // L5 Endless
 ];
 
@@ -694,7 +694,7 @@ function drawHUD(th,timeLeft) {
   ctx.fillStyle='#fff'; ctx.fillText('LV'+th.num+' '+th.name,5,12);
   // Timer (top center)
   ctx.textAlign='center';
-  if(levelIdx<4){
+  if(isFinite(timeLeft)){
     var s2=Math.ceil(timeLeft/1000), mm=String(Math.floor(s2/60)).padStart(2,'0'), ss=String(s2%60).padStart(2,'0');
     ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(W/2-26,2,52,13);
     ctx.fillStyle=s2<30?'#ff5555':'#ffffff'; ctx.font='bold 9px monospace'; ctx.fillText(mm+':'+ss,W/2,12);
