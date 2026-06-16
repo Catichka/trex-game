@@ -907,6 +907,17 @@ function drawDead() {
   ctx.textAlign='left';
 }
 
+function drawStarburst(cx,cy,outerR,innerR,pts){
+  ctx.beginPath();
+  for(var i=0;i<pts*2;i++){
+    var a=i*Math.PI/pts-Math.PI/2;
+    var r=i%2===0?outerR:innerR;
+    if(i===0)ctx.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);
+    else ctx.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);
+  }
+  ctx.closePath(); ctx.fill();
+}
+
 function drawBoard() {
   R(0,0,W,H,'rgba(0,0,20,0.96)');
   ctx.textAlign='center';
@@ -934,11 +945,29 @@ function drawBoard() {
     });
   }
 
-  ctx.fillStyle='#333'; ctx.fillRect(W/2-120,H-34,240,1);
+  // Your-score starburst badge on the left
   if(boardFromDead){
-    ctx.fillStyle='#ffff88'; ctx.font='8px monospace';
-    ctx.fillText('Your score: '+lastScore+(playerName?' — '+playerName:''),W/2,H-22);
+    var cx=58, cy=102;
+    ctx.fillStyle='rgba(255,200,0,0.18)'; drawStarburst(cx,cy,54,42,18); // outer glow
+    ctx.fillStyle='#aa7700';             drawStarburst(cx,cy,48,36,18); // dark gold ring
+    ctx.fillStyle='#ffcc00';             drawStarburst(cx,cy,43,32,18); // bright gold
+    ctx.fillStyle='#0d0d00';
+    ctx.beginPath(); ctx.arc(cx,cy,28,0,Math.PI*2); ctx.fill();         // dark centre
+    ctx.strokeStyle='#ffcc00'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(cx,cy,28,0,Math.PI*2); ctx.stroke();       // inner ring
+    ctx.lineWidth=1;
+    ctx.fillStyle='#ffcc00'; ctx.font='bold 6px monospace';
+    ctx.fillText('YOUR',cx,cy-13);
+    ctx.fillText('SCORE',cx,cy-5);
+    ctx.fillStyle='#ffffff'; ctx.font='bold 12px monospace';
+    ctx.fillText(String(lastScore),cx,cy+8);
+    if(playerName){
+      ctx.fillStyle='#88ff88'; ctx.font='6px monospace';
+      ctx.fillText(playerName.substring(0,9),cx,cy+19);
+    }
   }
+
+  ctx.fillStyle='#333'; ctx.fillRect(W/2-120,H-34,240,1);
   ctx.fillStyle='#88ffff'; ctx.font='bold 10px monospace';
   ctx.fillText(boardFromDead?'TAP TO PLAY AGAIN':'TAP TO GO BACK',W/2,H-8);
   ctx.textAlign='left';
