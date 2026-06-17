@@ -421,12 +421,14 @@ function drawForestExtra(sc) {
   [30,95,165,235,315,385,455].forEach(function(bx){
     var tx=((bx-tsc%(W+120)+W+120)%(W+120))-60;
     R(Math.round(tx)+8,GROUND-55,6,55,'#3a1a00');
+    ctx.fillStyle='#0d2208'; ctx.beginPath(); ctx.arc(Math.round(tx)+11,GROUND-70,18,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#1a3d10'; ctx.beginPath(); ctx.arc(Math.round(tx)+9,GROUND-84,12,0,Math.PI*2); ctx.fill();
   });
   // Ground roots
   ctx.fillStyle='#3a1a00';
   for(var i=0;i<18;i++){var gx=((i*30-sc*0.15)%(W+40)+W+40)%(W+40)-20; ctx.fillRect(Math.round(gx),GROUND-2,8,3);}
   // Fireflies (glowing dotted line in sky)
-  ctx.fillStyle='rgba(120,255,60,0.75)';
+  ctx.fillStyle='rgba(255,60,60,0.85)';
   for(var f=0;f<8;f++){var ffx=((f*68+sc*0.18)%(W+40)+W+40)%(W+40)-20; var ffy=GROUND*0.35+Math.sin((sc*0.018+f*0.9))*22+f*8; ctx.fillRect(Math.round(ffx),Math.round(ffy),2,2);}
 }
 function drawIceExtra(sc) {
@@ -703,7 +705,7 @@ function checkCollisions() {
   }
   for(var j=chaseables.length-1;j>=0;j--){
     var c=chaseables[j];
-    if(hits(px,py,pw,ph,c.x+2,c.y+2,c.w-4,c.h-4)){
+    if(hits(px,py,pw,ph,c.x+2,c.y-2,c.w-4,c.h+2)){
       chaseables.splice(j,1);
       var pts=c.kind==='cm'?40:c.kind==='sg'?35:25;
       score+=pts; addPopup(c.x+c.w/2,c.y-4,'+'+pts+' CAUGHT!','#88ff88'); sfxCatch();
