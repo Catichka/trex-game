@@ -813,7 +813,8 @@ function doTap(ex,ey) {
   if(state===ST.LVLDONE){
     levelIdx=Math.min(levelIdx+1,4);
     localStorage.setItem('trex-lv',levelIdx);
-    state=ST.PLAY;resetLevel();startMusic(levelIdx);return;
+    var savedScore=score;
+    state=ST.PLAY; resetLevel(); score=savedScore; startMusic(levelIdx); return;
   }
   if(state===ST.PLAY){
     if(ex!==undefined&&isOnRawrBtn(ex,ey)){
