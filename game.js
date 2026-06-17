@@ -50,7 +50,7 @@ const W = 480, H = 200, GROUND = 152, PIX = 3;
 var LEVEL_CFG = [
   { dur:1*60*1000, speed:3.5, spawnI:105, minSpawnI:88  }, // L1 Grasslands  1 min
   { dur:90*1000,   speed:4.0, spawnI:82,  minSpawnI:65  }, // L2 Forest       1:30
-  { dur:3*60*1000, speed:4.5, spawnI:64,  minSpawnI:50  }, // L3 Ice          3 min
+  { dur:2*60*1000, speed:4.5, spawnI:64,  minSpawnI:50  }, // L3 Ice          2 min
   { dur:Infinity,  speed:5.0, spawnI:52,  minSpawnI:32  }, // L4 Volcano      endless
   { dur:Infinity,  speed:5.5, spawnI:46,  minSpawnI:28  }, // L5 Endless
 ];
@@ -370,31 +370,31 @@ var THEMES = [
   { name:'GRASSLANDS', num:'1',
     skyT:'#2060d0',skyB:'#60b0ff',hillB:'#2a7020',hillF:'#3a9030',
     gT:'#5a9020',gnd:'#6ab030',gTex:'#3a6010',
-    obs:['cS','cL','rS','rL','gl','gl','rS','pt'], cloud:'#e8f4ff',
+    obs:['cS','cL','rS','rL','gl','pt','rS','pt'], cloud:'#e8f4ff',
     drawExtra: function(sc){ drawGrassExtra(sc); }
   },
   { name:'DARK FOREST', num:'2',
     skyT:'#080e04',skyB:'#142808',hillB:'#0a1806',hillF:'#142e0a',
     gT:'#3a1a00',gnd:'#2a1200',gTex:'#5a2800',
-    obs:['rS','rL','mu','mu','rS','rL','mu'], cloud:'#202820',
+    obs:['rS','rL','mu','pt','rS','mu','pt'], cloud:'#202820',
     drawExtra: function(sc){ drawForestExtra(sc); }
   },
   { name:'ICE WORLD', num:'3',
     skyT:'#102840',skyB:'#2060a0',hillB:'#508090',hillF:'#80b8c8',
     gT:'#d0eeff',gnd:'#b0d8f0',gTex:'#90c0e0',
-    obs:['iS','iT','iT','sb','pt','pt','iS'], cloud:'#c8e8ff',
+    obs:['iS','iT','pt','sb','pt','pt','iS'], cloud:'#c8e8ff',
     drawExtra: function(sc){ drawIceExtra(sc); }
   },
   { name:'VOLCANO', num:'4',
     skyT:'#200800',skyB:'#600808',hillB:'#2a0808',hillF:'#400808',
     gT:'#201008',gnd:'#180808',gTex:'#ff4400',
-    obs:['lS','lL','fg','lL','pt','fg','lL'], cloud:'#402010',
+    obs:['lS','lL','fg','pt','pt','fg','pt'], cloud:'#402010',
     drawExtra: function(sc){ drawVolcanoExtra(sc); }
   },
   { name:'ENDLESS!', num:'∞',
     skyT:'#100820',skyB:'#301050',hillB:'#200828',hillF:'#301038',
     gT:'#202020',gnd:'#181818',gTex:'#ff00aa',
-    obs:['cS','cL','st','iT','lL','fg','pt'], cloud:'#303050',
+    obs:['cS','pt','st','iT','pt','fg','pt'], cloud:'#303050',
     drawExtra: function(sc){ drawEndlessExtra(sc); }
   },
 ];
@@ -558,7 +558,7 @@ var player = {
 
 // ── Obstacles & Enemies ──────────────────────────────────────────
 var obstacles=[], chaseables=[], popups=[];
-var spawnT=0, spawnI=90, chaseT=0, chaseI=550;
+var spawnT=0, spawnI=90, chaseT=0, chaseI=300;
 
 var OBJ = {
   cS:{w:PIX*4,h:PIX*7},  cL:{w:PIX*6,h:PIX*9},
