@@ -49,7 +49,7 @@ function askName(callback) {
 const W = 480, H = 200, GROUND = 152, PIX = 3;
 var LEVEL_CFG = [
   { dur:1*60*1000, speed:3.5, spawnI:105, minSpawnI:88  }, // L1 Grasslands  1 min
-  { dur:3*60*1000, speed:4.0, spawnI:82,  minSpawnI:65  }, // L2 Forest       3 min
+  { dur:90*1000,   speed:4.0, spawnI:82,  minSpawnI:65  }, // L2 Forest       1:30
   { dur:3*60*1000, speed:4.5, spawnI:64,  minSpawnI:50  }, // L3 Ice          3 min
   { dur:Infinity,  speed:5.0, spawnI:52,  minSpawnI:32  }, // L4 Volcano      endless
   { dur:Infinity,  speed:5.5, spawnI:46,  minSpawnI:28  }, // L5 Endless
@@ -376,7 +376,7 @@ var THEMES = [
   { name:'DARK FOREST', num:'2',
     skyT:'#080e04',skyB:'#142808',hillB:'#0a1806',hillF:'#142e0a',
     gT:'#3a1a00',gnd:'#2a1200',gTex:'#5a2800',
-    obs:['st','st','mu','fl','mu','pt','cS'], cloud:'#202820',
+    obs:['rS','rL','mu','mu','rS','rL','mu'], cloud:'#202820',
     drawExtra: function(sc){ drawForestExtra(sc); }
   },
   { name:'ICE WORLD', num:'3',
@@ -421,17 +421,11 @@ function drawForestExtra(sc) {
   [30,95,165,235,315,385,455].forEach(function(bx){
     var tx=((bx-tsc%(W+120)+W+120)%(W+120))-60;
     R(Math.round(tx)+8,GROUND-55,6,55,'#3a1a00');
-    ctx.fillStyle='#0a2006'; ctx.beginPath(); ctx.arc(Math.round(tx)+11,GROUND-65,22,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#142e0a'; ctx.beginPath(); ctx.arc(Math.round(tx)+11,GROUND-80,15,0,Math.PI*2); ctx.fill();
-    // Glow at tree base
-    ctx.fillStyle='rgba(50,180,0,0.12)'; ctx.beginPath(); ctx.arc(Math.round(tx)+11,GROUND-20,10,0,Math.PI*2); ctx.fill();
   });
-  // Ground roots / mushrooms
+  // Ground roots
   ctx.fillStyle='#3a1a00';
   for(var i=0;i<18;i++){var gx=((i*30-sc*0.15)%(W+40)+W+40)%(W+40)-20; ctx.fillRect(Math.round(gx),GROUND-2,8,3);}
-  // Background mushrooms
-  for(var m=0;m<6;m++){var mx=((m*80-sc*0.1)%(W+60)+W+60)%(W+60)-30; R(Math.round(mx)+1,GROUND-5,2,5,'#6a4020'); ctx.fillStyle='rgba(220,30,10,0.7)'; ctx.beginPath(); ctx.arc(Math.round(mx)+2,GROUND-5,5,0,Math.PI*2); ctx.fill();}
-  // Fireflies (glowing dots)
+  // Fireflies (glowing dotted line in sky)
   ctx.fillStyle='rgba(120,255,60,0.75)';
   for(var f=0;f<8;f++){var ffx=((f*68+sc*0.18)%(W+40)+W+40)%(W+40)-20; var ffy=GROUND*0.35+Math.sin((sc*0.018+f*0.9))*22+f*8; ctx.fillRect(Math.round(ffx),Math.round(ffy),2,2);}
 }
@@ -589,8 +583,8 @@ function spawnObs(th) {
 
 function spawnChase() {
   var r=Math.random(), kind=r<0.34?'sd':r<0.67?'cm':'sg';
-  var sw=kind==='sd'?PIX*6:kind==='cm'?PIX*5:32;
-  var sh=kind==='sd'?PIX*7:kind==='cm'?PIX*11:20;
+  var sw=kind==='sd'?14:kind==='cm'?14:32;
+  var sh=kind==='sd'?14:kind==='cm'?22:20;
   chaseables.push({kind:kind,x:W+50,y:GROUND-sh,w:sw,h:sh,rF:0,rT:0,vy:0,onGround:true,scared:false});
 }
 
@@ -624,7 +618,16 @@ function updateAndDrawChase(spd) {
     var baseSpd=c.kind==='sg'?spd*0.62:spd*0.55; // stego moves a bit faster (harder to catch)
     var mv=c.scared?spd+3.5:baseSpd;
     c.x-=mv;
-    if(c.kind==='cm'&&c.onGround&&Math.random()<0.004){c.vy=-7;c.onGround=false;}
+    if(c.kind==='cm'&&c.onGround){
+      var mustJump=false;
+      for(var oi=0;oi<obstacles.length;oi++){
+        var ob=obstacles[oi];
+        if(ob.kind==='pt'||ob.flee)continue;
+        var gap=ob.x-(c.x+c.w);
+        if(gap>0&&gap<60){mustJump=true;break;}
+      }
+      if(mustJump||Math.random()<0.002){c.vy=-8;c.onGround=false;}
+    }
     if(!c.onGround){c.vy+=0.5;c.y+=c.vy;var fl=GROUND-c.h;if(c.y>=fl){c.y=fl;c.onGround=true;c.vy=0;}}
     c.rT++;if(c.rT>=8){c.rT=0;c.rF=1-c.rF;}
     if(c.kind==='sd')drawSmallDino(c.x,c.y,c.rF);
@@ -1010,6 +1013,7 @@ function loop() {
       sfxDie(); stopMusic();
       if(score>hiScore){hiScore=score;localStorage.setItem('trex-hi',hiScore);}
       lastScore=score;
+      levelIdx=0; localStorage.setItem('trex-lv',0);
       // Submit score then show board
       function goToBoard(){ boardFromDead=true; state=ST.BOARD; loadBoard(); }
       if(!playerName){
