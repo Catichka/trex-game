@@ -55,6 +55,12 @@ var Assets = (function () {
         // Single-row sheets (obstacles, fx) may leave the frame size implicit.
         if (!m.frameWidth) m.frameWidth = Math.floor(img.width / maxF);
         if (!m.frameHeight) m.frameHeight = Math.floor(img.height / (maxRow + 1));
+        // Forget default animations the sheet doesn't actually contain, so
+        // they fall back to one it does instead of drawing an empty cell.
+        for (k in m.animations) {
+          var an = m.animations[k];
+          if (!an.rects && ((an.row || 0) + 1) * m.frameHeight > img.height) delete m.animations[k];
+        }
         m.columns = Math.floor(img.width / m.frameWidth);
         if (img.width % m.frameWidth || img.height % m.frameHeight)
           console.warn('[assets] ' + path + '.png is ' + img.width + 'x' + img.height +
@@ -64,6 +70,9 @@ var Assets = (function () {
     };
     fetchJSON(path + '.json').then(function (j) {
       var anims = merge(defaults.animations, j.animations || {});
+      // Atlas-style metadata: "frame_size": [w, h], "pivot": [x, y]
+      if (j.frame_size) { j.frameWidth = j.frame_size[0]; j.frameHeight = j.frame_size[1]; }
+      if (j.pivot && !j.anchor) j.anchor = j.pivot;
       s.meta = merge(defaults, j);
       s.meta.animations = anims;
       s.meta.fallbacks = defaults.fallbacks || {};
@@ -93,10 +102,16 @@ var Assets = (function () {
     var n = a.frames || 1;
     var f = Math.floor((t || 0) * (a.fps || 8) / 60);
     f = a.loop === false ? Math.min(f, n - 1) : f % n;
-    var col = (a.col || 0) + f, row = a.row || 0;
-    // Animations may wrap onto following rows of the sheet.
-    if (m.columns) { row += Math.floor(col / m.columns); col = col % m.columns; }
-    var fw = m.frameWidth, fh = m.frameHeight, sc = m.scale || 1;
+    var fw = m.frameWidth, fh = m.frameHeight, sc = m.scale || 1, sx, sy;
+    if (a.rects && a.rects[f]) {
+      // Explicit atlas rectangles: [x, y, w, h] per frame
+      sx = a.rects[f][0]; sy = a.rects[f][1]; fw = a.rects[f][2]; fh = a.rects[f][3];
+    } else {
+      var col = (a.col || 0) + f, row = a.row || 0;
+      // Animations may wrap onto following rows of the sheet.
+      if (m.columns) { row += Math.floor(col / m.columns); col = col % m.columns; }
+      sx = col * fw; sy = row * fh;
+    }
     var ax = m.anchor ? m.anchor[0] : fw / 2, ay = m.anchor ? m.anchor[1] : fh;
     var flip = opts && opts.flipX;
     var dx = Math.round(bx + bw / 2 - (flip ? fw - ax : ax) * sc);
@@ -105,9 +120,9 @@ var Assets = (function () {
     if (opts && opts.alpha != null) ctx.globalAlpha = opts.alpha;
     if (flip) {
       ctx.translate(dx + fw * sc, dy); ctx.scale(-1, 1);
-      ctx.drawImage(s.img, col * fw, row * fh, fw, fh, 0, 0, fw * sc, fh * sc);
+      ctx.drawImage(s.img, sx, sy, fw, fh, 0, 0, fw * sc, fh * sc);
     } else {
-      ctx.drawImage(s.img, col * fw, row * fh, fw, fh, dx, dy, fw * sc, fh * sc);
+      ctx.drawImage(s.img, sx, sy, fw, fh, dx, dy, fw * sc, fh * sc);
     }
     ctx.restore();
     if (debug) { ctx.strokeStyle = 'rgba(0,255,255,0.7)'; ctx.strokeRect(dx + 0.5, dy + 0.5, fw * sc - 1, fh * sc - 1); }
@@ -195,8 +210,12 @@ var Assets = (function () {
 // play(name) switches animation (restarting it only when it changes);
 // playOnce(name, next) plays a non-looping animation then switches to `next`.
 function Animator(name) { this.name = name || 'idle'; this.t = 0; this.next = null; this.left = Infinity; }
-Animator.prototype.play = function (name) {
-  if (this.next) return; // a one-shot is still playing
+// interrupt: cut a playing one-shot short (e.g. jumping again mid-landing).
+Animator.prototype.play = function (name, interrupt) {
+  if (this.next) {
+    if (!interrupt) return; // a one-shot is still playing
+    this.next = null; this.left = Infinity;
+  }
   if (name !== this.name) { this.name = name; this.t = 0; }
 };
 Animator.prototype.playOnce = function (name, next, ticks) {

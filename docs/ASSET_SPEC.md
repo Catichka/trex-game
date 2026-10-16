@@ -81,6 +81,13 @@ exactly.
 | `animations.<name>.loop` | `false` for one-shots (they hold the last frame) |
 | `scale` | Integer upscale. Leave at 1 unless agreed otherwise. |
 
+The atlas format ChatGPT delivered also works as-is: `"frame_size": [w, h]`
+instead of `frameWidth`/`frameHeight`, per-animation `"rects": [[x, y, w, h], …]`
+(used in place of row/column maths when present), and `"pivot": [x, y]` as
+a synonym for `anchor`. Unknown keys are ignored. Default animations whose
+row lies outside the image are dropped, so they fall back instead of
+drawing an empty cell.
+
 Keep the anchor in the **same spot on every frame**. Don't let the feet
 drift between frames, or the character will jitter.
 
@@ -91,17 +98,20 @@ example `fall` → `jump` → `run`) until the real one exists.
 
 Default frame layout. Rows in this order; fps values are the defaults.
 
-**T-Rex**: `assets/characters/trex/trex.png`, id `trex`. Frame **48 × 48**, faces **right**.
+**T-Rex**: `assets/characters/trex/trex_atlas.png` + `trex_atlas.json`, id `trex`. Frame **64 × 64** (Art Bible), faces **right**. Engine anchor `[35, 58]`: row 58 is the ground line under the feet, and x 35 puts the torso over the gameplay hitbox, with the tail hanging back. Keep feet on row 58 in every grounded frame.
 
-| Row | Animation | Frames | fps | Loop | Used when |
-|---|---|---|---|---|---|
-| 0 | `idle` | 4 | 6 | yes | title screen, level complete |
-| 1 | `run` | 6 | 12 | yes | on the ground |
-| 2 | `jump` | 2 | 8 | yes | rising |
-| 3 | `fall` | 2 | 8 | yes | falling |
-| 4 | `bite` | 4 | 20 | no | chomping a pterodactyl (lasts about 14 ticks) |
-| 5 | `rawr` | 4 | 10 | yes | roaring (0.5 to 0.8 s) |
-| 6 | `hurt` | 4 | 8 | no | game over |
+Rows 0–4 are delivered (prototype v1). Rows 5–7 are still wanted. Until they exist, the engine falls back as noted.
+
+| Row | Animation | Frames | fps | Loop | Used when | Status |
+|---|---|---|---|---|---|---|
+| 0 | `idle` | 4 | 5 | yes | title screen, level complete | ✅ v1 |
+| 1 | `run` | 8 | 12 | yes | on the ground | ✅ v1 |
+| 2 | `jump` | 4 | 8 | no | rising | ✅ v1 |
+| 3 | `fall` | 4 | 8 | no | falling | ✅ v1 |
+| 4 | `land` | 4 | 10 | no | touching down, then back to `run` | ✅ v1 |
+| 5 | `bite` | 4 | 20 | no | chomping a pterodactyl mid-air (about 14 ticks) | wanted (shows `run` for now) |
+| 6 | `rawr` | 4 | 10 | yes | roaring (0.5 to 0.8 s); the speech bubble is drawn by the engine | wanted (shows `idle`) |
+| 7 | `hurt` | 4 | 8 | no | game over | wanted (shows `idle`) |
 
 **Pterodactyl**: `assets/characters/pterodactyl/pterodactyl.png`, id `pterodactyl`. Frame **48 × 32**, faces **left** (it flies toward the T-Rex). Default anchor `[24, 24]` because it flies, so the anchor is the body centre-ish, not feet.
 

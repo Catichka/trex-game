@@ -197,11 +197,14 @@ function R(x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(Math.round(x),Math.round(y)
 function anims(list){ // [name,row,frames,fps,loop?]
   var o={}; list.forEach(function(a){o[a[0]]={row:a[1],frames:a[2],fps:a[3],loop:a[4]!==false};}); return o;
 }
-Assets.defineSprite('trex','assets/characters/trex/trex',{
-  frameWidth:48, frameHeight:48,
-  animations:anims([['idle',0,4,6],['run',1,6,12],['jump',2,2,8],['fall',3,2,8],
-                    ['bite',4,4,20,false],['rawr',5,4,10],['hurt',6,4,8,false]]),
-  fallbacks:{idle:'run',jump:'run',fall:'jump',bite:'run',rawr:'idle',hurt:'idle'}
+// T-Rex atlas from the art team (assets/characters/trex/trex_atlas.json supplies
+// frame size, rows, fps). Anchor pins the feet (row 58, between the legs, offset
+// so the torso sits over the gameplay hitbox) to the bottom-centre of the box.
+Assets.defineSprite('trex','assets/characters/trex/trex_atlas',{
+  frameWidth:64, frameHeight:64, anchor:[35,58],
+  animations:anims([['idle',0,4,5],['run',1,8,12],['jump',2,4,8,false],['fall',3,4,8,false],['land',4,4,10,false],
+                    ['bite',5,4,20,false],['rawr',6,4,10],['hurt',7,4,8,false]]),
+  fallbacks:{idle:'run',jump:'run',fall:'jump',land:'run',bite:'run',rawr:'idle',hurt:'idle'}
 });
 Assets.defineSprite('pterodactyl','assets/characters/pterodactyl/pterodactyl',{
   frameWidth:48, frameHeight:32, anchor:[24,24],
@@ -617,7 +620,8 @@ var player = {
     if(!this.onGround)this.vy+=0.65;
     this.y+=this.vy;
     var fl=GROUND-DINO_H;
-    if(this.y>=fl){var wa=!this.onGround;this.y=fl;this.vy=0;this.onGround=true;this.jumps=0;if(wa){sfxLand();spawnEffect('fx-dust','play',this.x,GROUND-8,DINO_W,8,true);}}
+    if(this.y>=fl){var wa=!this.onGround;this.y=fl;this.vy=0;this.onGround=true;this.jumps=0;if(wa){sfxLand();spawnEffect('fx-dust','play',this.x,GROUND-8,DINO_W,8,true);
+      var ln=Assets.animLength('trex','land'); if(isFinite(ln))this.anim.playOnce('land','run',ln);}}
     else this.onGround=false;
     if(this.bT>0&&--this.bT===0)this.biting=false;
     if(this.raT>0&&--this.raT===0)this.rawring=false;
@@ -627,7 +631,7 @@ var player = {
   // pose: 'idle' / 'hurt' to override the gameplay-driven animation
   draw:function(pose){
     var a=pose||(this.biting?'bite':this.rawring?'rawr':!this.onGround?(this.vy<0?'jump':'fall'):'run');
-    this.anim.play(a);
+    this.anim.play(a,a!=='run');
     var self=this;
     drawArt('trex',this.anim,this.x,this.y,DINO_W,DINO_H,function(){
       drawDino(self.x,self.y,self.rF,self.biting,!self.onGround,self.rawring);
