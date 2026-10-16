@@ -189,6 +189,91 @@ function stopMusic() { musicOn=false; clearTimeout(musicTimer); }
 // ── Draw helpers ─────────────────────────────────────────────────
 function R(x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(Math.round(x),Math.round(y),w,h); }
 
+// ── Art registry ─────────────────────────────────────────────────
+// Every sprite sheet and environment the engine knows about. Files live
+// under assets/ (see docs/ASSET_SPEC.md); a sidecar <name>.json next to a
+// PNG may override any of these defaults. Anything missing falls back to
+// the placeholder pixel drawings below.
+function anims(list){ // [name,row,frames,fps,loop?]
+  var o={}; list.forEach(function(a){o[a[0]]={row:a[1],frames:a[2],fps:a[3],loop:a[4]!==false};}); return o;
+}
+Assets.defineSprite('trex','assets/characters/trex/trex',{
+  frameWidth:48, frameHeight:48,
+  animations:anims([['idle',0,4,6],['run',1,6,12],['jump',2,2,8],['fall',3,2,8],
+                    ['bite',4,4,20,false],['rawr',5,4,10],['hurt',6,4,8,false]]),
+  fallbacks:{idle:'run',jump:'run',fall:'jump',bite:'run',rawr:'idle',hurt:'idle'}
+});
+Assets.defineSprite('pterodactyl','assets/characters/pterodactyl/pterodactyl',{
+  frameWidth:48, frameHeight:32, anchor:[24,24],
+  animations:anims([['fly',0,4,10],['attack',1,4,12],['frightened',2,4,14],['eaten',3,6,12,false]]),
+  fallbacks:{attack:'fly',frightened:'fly',eaten:'frightened'}
+});
+Assets.defineSprite('caveman','assets/characters/caveman/caveman',{
+  frameWidth:32, frameHeight:32,
+  animations:anims([['run',0,6,12],['panic',1,6,16],['jump',2,2,8],['stumble',3,4,12,false],['caught',4,6,12,false]]),
+  fallbacks:{panic:'run',jump:'run',stumble:'run',caught:'panic'}
+});
+Assets.defineSprite('small-dino','assets/characters/small-dino/small-dino',{
+  frameWidth:24, frameHeight:24,
+  animations:anims([['run',0,4,12],['panic',1,4,16],['caught',2,6,12,false]]),
+  fallbacks:{panic:'run',caught:'panic'}
+});
+Assets.defineSprite('stegosaurus','assets/characters/stegosaurus/stegosaurus',{
+  frameWidth:48, frameHeight:32,
+  animations:anims([['run',0,4,8],['panic',1,4,12],['caught',2,6,12,false]]),
+  fallbacks:{panic:'run',caught:'panic'}
+});
+// Obstacles: one row; frame size defaults to (image width / frames) x image height.
+var OBS_SPRITE={
+  cS:'cactus-small', cL:'cactus-large', rS:'rock-small', rL:'rock-large', gl:'log',
+  st:'stump', mu:'mushroom', fl:'fern-log', iS:'ice-shard-small', iT:'ice-shard-tall',
+  sb:'snowball', lS:'lava-rock-small', lL:'lava-rock-large', fg:'fire-geyser', pt:'pterodactyl',
+};
+Object.keys(OBS_SPRITE).forEach(function(k){
+  var id=OBS_SPRITE[k]; if(id==='pterodactyl')return;
+  Assets.defineSprite(id,'assets/obstacles/'+id,{animations:anims([['idle',0,1,6]])});
+});
+// One-shot visual effects (nothing is drawn for these until art exists).
+['dust','chomp','catch'].forEach(function(id){
+  Assets.defineSprite('fx-'+id,'assets/fx/'+id,{animations:anims([['play',0,6,20,false]])});
+});
+// Parallax environments: layers are full canvas height (200px), tile horizontally.
+var ENV_LAYERS=[
+  {file:'sky.png',        speed:0},
+  {file:'clouds.png',     speed:0.08, drift:0.1},
+  {file:'far.png',        speed:0.12},
+  {file:'mid.png',        speed:0.25},
+  {file:'near.png',       speed:0.5},
+  {file:'ground.png',     speed:1, ground:true},
+  {file:'foreground.png', speed:1.4, z:'front'},
+];
+['grasslands','forest','ice','volcano','endless'].forEach(function(id){
+  Assets.defineEnvironment(id,'assets/environments/'+id,ENV_LAYERS);
+});
+Assets.load();
+
+// Draw a sprite, or run `placeholder()` if its art isn't loaded.
+function drawArt(id,anim,x,y,w,h,placeholder,opts){
+  if(!Assets.drawSprite(ctx,id,anim.name,anim.t,x,y,w,h,opts))placeholder();
+}
+
+// ── Effects (one-shot animations: eaten, caught, dust…) ──────────
+var effects=[];
+function spawnEffect(id,animName,x,y,w,h,vx,opts){
+  var n=Assets.animLength(id,animName);
+  if(!isFinite(n))return; // no art for it: placeholder style just removes the entity
+  var a=new Animator(animName);
+  effects.push({id:id,anim:a,x:x,y:y,w:w,h:h,vx:vx||0,life:n,opts:opts});
+}
+function updateAndDrawEffects(spd){
+  effects.forEach(function(e){
+    e.x-=e.vx?spd:0;
+    Assets.drawSprite(ctx,e.id,e.anim.name,e.anim.t,e.x,e.y,e.w,e.h,e.opts);
+    e.anim.update(); e.life--;
+  });
+  effects=effects.filter(function(e){return e.life>0;});
+}
+
 // ── T-Rex ────────────────────────────────────────────────────────
 var DC = { g:'#38a048',d:'#1e6028',b:'#70d060',e:'#ffffff',p:'#000000',m:'#e03030' };
 var DINO_H = PIX*14, DINO_W = PIX*10;
@@ -367,31 +452,31 @@ function drawPtero(x,y,wingUp,tint) {
 
 // ── Level themes ─────────────────────────────────────────────────
 var THEMES = [
-  { name:'GRASSLANDS', num:'1',
+  { name:'GRASSLANDS', env:'grasslands', num:'1',
     skyT:'#2060d0',skyB:'#60b0ff',hillB:'#2a7020',hillF:'#3a9030',
     gT:'#5a9020',gnd:'#6ab030',gTex:'#3a6010',
     obs:['cS','cL','rS','rL','gl','pt','rS','pt'], cloud:'#e8f4ff',
     drawExtra: function(sc){ drawGrassExtra(sc); }
   },
-  { name:'DARK FOREST', num:'2',
+  { name:'DARK FOREST', env:'forest', num:'2',
     skyT:'#080e04',skyB:'#142808',hillB:'#0a1806',hillF:'#142e0a',
     gT:'#3a1a00',gnd:'#2a1200',gTex:'#5a2800',
     obs:['rS','rL','mu','pt','rS','mu','pt'], cloud:'#202820',
     drawExtra: function(sc){ drawForestExtra(sc); }
   },
-  { name:'ICE WORLD', num:'3',
+  { name:'ICE WORLD', env:'ice', num:'3',
     skyT:'#102840',skyB:'#2060a0',hillB:'#508090',hillF:'#80b8c8',
     gT:'#d0eeff',gnd:'#b0d8f0',gTex:'#90c0e0',
     obs:['iS','iT','pt','sb','pt','pt','iS'], cloud:'#c8e8ff',
     drawExtra: function(sc){ drawIceExtra(sc); }
   },
-  { name:'VOLCANO', num:'4',
+  { name:'VOLCANO', env:'volcano', num:'4',
     skyT:'#200800',skyB:'#600808',hillB:'#2a0808',hillF:'#400808',
     gT:'#201008',gnd:'#180808',gTex:'#ff4400',
     obs:['lS','lL','fg','pt','pt','fg','pt'], cloud:'#402010',
     drawExtra: function(sc){ drawVolcanoExtra(sc); }
   },
-  { name:'ENDLESS!', num:'∞',
+  { name:'ENDLESS!', env:'endless', num:'∞',
     skyT:'#100820',skyB:'#301050',hillB:'#200828',hillF:'#301038',
     gT:'#202020',gnd:'#181818',gTex:'#ff00aa',
     obs:['cS','pt','st','iT','pt','fg','pt'], cloud:'#303050',
@@ -486,8 +571,14 @@ function drawEndlessExtra(sc) {
 }
 
 // Background / ground
+function drawFg(sc,th){ Assets.drawEnvironment(ctx,th.env,'front',sc,tick,W); }
 var clouds=[{x:80,y:18,w:52},{x:260,y:28,w:38},{x:400,y:14,w:60}];
 function drawBg(sc,th) {
+  if(Assets.hasEnvironment(th.env)){
+    R(0,0,W,H,th.skyB);
+    Assets.drawEnvironment(ctx,th.env,'back',sc,tick,W);
+    return;
+  }
   R(0,0,W,GROUND,th.skyT); R(0,GROUND*0.5,W,GROUND*0.5,th.skyB);
   var ms=sc*0.25;
   ctx.fillStyle=th.hillB;
@@ -498,6 +589,7 @@ function drawBg(sc,th) {
   th.drawExtra(sc);
 }
 function drawGround(sc,th) {
+  if(Assets.environmentHasGround(th.env))return;
   R(0,GROUND,W,H-GROUND,th.gnd); R(0,GROUND,W,4,th.gT);
   ctx.fillStyle=th.gTex;
   for(var i=0;i<22;i++){var gx=((i*28-sc)%W+W)%W; ctx.fillRect(Math.round(gx),GROUND+8,14,2);}
@@ -507,7 +599,7 @@ function drawGround(sc,th) {
 // ── Player ───────────────────────────────────────────────────────
 var player = {
   x:55, y:GROUND-DINO_H, vy:0, onGround:true, jumps:0, MAX_JUMPS:2,
-  rF:0, rT:0, biting:false, bT:0, rawring:false, raT:0, rawrSize:0,
+  rF:0, rT:0, biting:false, bT:0, rawring:false, raT:0, rawrSize:0, anim:new Animator('run'),
 
   get hitX(){return this.x+PIX*3;}, get hitY(){return this.y+PIX*2;},
   get hitW(){return PIX*6;},        get hitH(){return this.y+PIX*11-this.hitY;},
@@ -525,15 +617,22 @@ var player = {
     if(!this.onGround)this.vy+=0.65;
     this.y+=this.vy;
     var fl=GROUND-DINO_H;
-    if(this.y>=fl){var wa=!this.onGround;this.y=fl;this.vy=0;this.onGround=true;this.jumps=0;if(wa)sfxLand();}
+    if(this.y>=fl){var wa=!this.onGround;this.y=fl;this.vy=0;this.onGround=true;this.jumps=0;if(wa){sfxLand();spawnEffect('fx-dust','play',this.x,GROUND-8,DINO_W,8,true);}}
     else this.onGround=false;
     if(this.bT>0&&--this.bT===0)this.biting=false;
     if(this.raT>0&&--this.raT===0)this.rawring=false;
     if(this.onGround){this.rT++;if(this.rT>=7){this.rT=0;this.rF=1-this.rF;}}
   },
 
-  draw:function(){
-    drawDino(this.x,this.y,this.rF,this.biting,!this.onGround,this.rawring);
+  // pose: 'idle' / 'hurt' to override the gameplay-driven animation
+  draw:function(pose){
+    var a=pose||(this.biting?'bite':this.rawring?'rawr':!this.onGround?(this.vy<0?'jump':'fall'):'run');
+    this.anim.play(a);
+    var self=this;
+    drawArt('trex',this.anim,this.x,this.y,DINO_W,DINO_H,function(){
+      drawDino(self.x,self.y,self.rF,self.biting,!self.onGround,self.rawring);
+    });
+    this.anim.update();
     if(this.rawring){
       var bx=this.x+PIX*9, by=this.y-(this.rawrSize===2?22:16);
       var txt=this.rawrSize===2?'RAAAWR!':'RAWR!';
@@ -552,7 +651,7 @@ var player = {
 
   reset:function(){
     this.x=55;this.y=GROUND-DINO_H;this.vy=0;this.onGround=true;this.jumps=0;
-    this.rF=0;this.rT=0;this.biting=false;this.bT=0;this.rawring=false;this.raT=0;
+    this.rF=0;this.rT=0;this.biting=false;this.bT=0;this.rawring=false;this.raT=0;this.anim=new Animator('run');
   }
 };
 
@@ -574,43 +673,50 @@ function spawnObs(th) {
   var sz=OBJ[kind]||OBJ.cS;
   var oy=GROUND-sz.h;
   if(kind==='pt'){var allHts=[GROUND-sz.h-18,GROUND-sz.h-38,GROUND-sz.h-58]; var numHts=Math.min(levelIdx+1,3); oy=allHts[Math.floor(Math.random()*numHts)];}
-  obstacles.push({kind:kind,x:W+20,y:oy,w:sz.w,h:sz.h,bitable:kind==='pt',wT:0,wF:0,flee:false});
+  obstacles.push({kind:kind,x:W+20,y:oy,w:sz.w,h:sz.h,bitable:kind==='pt',wT:0,wF:0,flee:false,anim:new Animator(kind==='pt'?'fly':'idle')});
   // Occasional paired ground obstacle
   if((kind==='cS'||kind==='st'||kind==='lS')&&Math.random()<0.28){
     var k2=th.obs.filter(function(t){return t!=='pt';})[0]||kind;
     var s2=OBJ[k2]||sz;
-    obstacles.push({kind:k2,x:W+20+sz.w+PIX*5,y:GROUND-s2.h,w:s2.w,h:s2.h,bitable:false,wT:0,wF:0,flee:false});
+    obstacles.push({kind:k2,x:W+20+sz.w+PIX*5,y:GROUND-s2.h,w:s2.w,h:s2.h,bitable:false,wT:0,wF:0,flee:false,anim:new Animator('idle')});
   }
 }
 
+var CHASE_SPRITE={sd:'small-dino',cm:'caveman',sg:'stegosaurus'};
 function spawnChase() {
   var r=Math.random(), kind=r<0.34?'sd':r<0.67?'cm':'sg';
   var sw=kind==='sd'?14:kind==='cm'?14:32;
   var sh=kind==='sd'?14:kind==='cm'?22:20;
-  chaseables.push({kind:kind,x:W+50,y:GROUND-sh,w:sw,h:sh,rF:0,rT:0,vy:0,onGround:true,scared:false});
+  chaseables.push({kind:kind,x:W+50,y:GROUND-sh,w:sw,h:sh,rF:0,rT:0,vy:0,onGround:true,scared:false,anim:new Animator('run')});
+}
+
+function drawObstaclePlaceholder(o){
+  switch(o.kind){
+    case 'cS': drawCactus(o.x,o.y,false); break;
+    case 'cL': drawCactus(o.x,o.y,true);  break;
+    case 'rS': drawRock(o.x,o.y,false);   break;
+    case 'rL': drawRock(o.x,o.y,true);    break;
+    case 'gl': drawGrassLog(o.x,o.y);     break;
+    case 'st': drawStump(o.x,o.y);         break;
+    case 'mu': drawMushroom(o.x,o.y);      break;
+    case 'fl': drawFernLog(o.x,o.y);       break;
+    case 'iS': drawIceShard(o.x,o.y,false);break;
+    case 'iT': drawIceShard(o.x,o.y,true); break;
+    case 'sb': drawSnowball(o.x,o.y);      break;
+    case 'lS': drawLavaRock(o.x,o.y,false);break;
+    case 'lL': drawLavaRock(o.x,o.y,true); break;
+    case 'fg': drawFireGeyser(o.x,o.y);    break;
+    case 'pt': drawPtero(o.x,o.y,o.wF===0);break;
+  }
 }
 
 function updateAndDrawObs(spd) {
   obstacles.forEach(function(o){
     o.x-=o.flee?spd+4:spd;
     if(o.kind==='pt'){o.wT++;if(o.wT>=10){o.wT=0;o.wF=1-o.wF;} if(o.flee)o.y-=3;}
-    switch(o.kind){
-      case 'cS': drawCactus(o.x,o.y,false); break;
-      case 'cL': drawCactus(o.x,o.y,true);  break;
-      case 'rS': drawRock(o.x,o.y,false);   break;
-      case 'rL': drawRock(o.x,o.y,true);    break;
-      case 'gl': drawGrassLog(o.x,o.y);     break;
-      case 'st': drawStump(o.x,o.y);         break;
-      case 'mu': drawMushroom(o.x,o.y);      break;
-      case 'fl': drawFernLog(o.x,o.y);       break;
-      case 'iS': drawIceShard(o.x,o.y,false);break;
-      case 'iT': drawIceShard(o.x,o.y,true); break;
-      case 'sb': drawSnowball(o.x,o.y);      break;
-      case 'lS': drawLavaRock(o.x,o.y,false);break;
-      case 'lL': drawLavaRock(o.x,o.y,true); break;
-      case 'fg': drawFireGeyser(o.x,o.y);    break;
-      case 'pt': drawPtero(o.x,o.y,o.wF===0);break;
-    }
+    if(o.kind==='pt')o.anim.play(o.flee?'frightened':(o.x>player.x&&o.x-player.x<110)?'attack':'fly');
+    drawArt(OBS_SPRITE[o.kind],o.anim,o.x,o.y,o.w,o.h,function(){drawObstaclePlaceholder(o);});
+    o.anim.update();
   });
   obstacles=obstacles.filter(function(o){return o.x>-100&&o.y>-80;});
 }
@@ -630,11 +736,16 @@ function updateAndDrawChase(spd) {
       }
       if(mustJump||Math.random()<0.002){c.vy=-8;c.onGround=false;}
     }
-    if(!c.onGround){c.vy+=0.5;c.y+=c.vy;var fl=GROUND-c.h;if(c.y>=fl){c.y=fl;c.onGround=true;c.vy=0;}}
+    if(!c.onGround){c.vy+=0.5;c.y+=c.vy;var fl=GROUND-c.h;if(c.y>=fl){c.y=fl;c.onGround=true;c.vy=0;
+      var sn=Assets.animLength(CHASE_SPRITE[c.kind],'stumble'); if(isFinite(sn)&&!c.scared)c.anim.playOnce('stumble','run',sn);}}
     c.rT++;if(c.rT>=8){c.rT=0;c.rF=1-c.rF;}
-    if(c.kind==='sd')drawSmallDino(c.x,c.y,c.rF);
-    else if(c.kind==='sg')drawStego(c.x,c.y,c.rF);
-    else drawCaveman(c.x,c.y,c.rF);
+    c.anim.play(c.scared?'panic':!c.onGround?'jump':'run');
+    drawArt(CHASE_SPRITE[c.kind],c.anim,c.x,c.y,c.w,c.h,function(){
+      if(c.kind==='sd')drawSmallDino(c.x,c.y,c.rF);
+      else if(c.kind==='sg')drawStego(c.x,c.y,c.rF);
+      else drawCaveman(c.x,c.y,c.rF);
+    });
+    c.anim.update();
   });
   chaseables=chaseables.filter(function(c){return c.x>-80;});
 }
@@ -688,6 +799,17 @@ function checkLavaCollision(){
 // ── Collision ────────────────────────────────────────────────────
 function hits(ax,ay,aw,ah,bx,by,bw,bh){return ax<bx+bw&&ax+aw>bx&&ay<by+bh&&ay+ah>by;}
 
+// ?debug: collision boxes as the game actually tests them
+function drawDebug(){
+  ctx.lineWidth=1;
+  ctx.strokeStyle='#ff00ff';
+  ctx.strokeRect(player.hitX+5.5,player.hitY+5.5,player.hitW-11,player.hitH-11);
+  ctx.strokeStyle='#ff4444';
+  obstacles.forEach(function(o){ctx.strokeRect(o.x+5.5,o.y+5.5,o.w-11,o.h-11);});
+  ctx.strokeStyle='#44ff44';
+  chaseables.forEach(function(c){ctx.strokeRect(c.x+2.5,c.y-1.5,c.w-5,c.h+1);});
+}
+
 function addPopup(x,y,txt,col){ popups.push({x:x,y:y,txt:txt,col:col||'#ffff00',life:36}); }
 
 function checkCollisions() {
@@ -699,6 +821,8 @@ function checkCollisions() {
     if(hits(px,py,pw,ph,o.x+mg,o.y+mg,o.w-mg*2,o.h-mg*2)){
       if(o.bitable&&!player.onGround){
         player.triggerBite(); obstacles.splice(i,1);
+        spawnEffect('pterodactyl','eaten',o.x,o.y,o.w,o.h,false);
+        spawnEffect('fx-chomp','play',o.x,o.y,o.w,o.h,false);
         score+=50; addPopup(o.x+o.w/2,o.y-4,'+50 CHOMP!','#ffee44');
       } else return true;
     }
@@ -707,6 +831,8 @@ function checkCollisions() {
     var c=chaseables[j];
     if(hits(px,py,pw,ph,c.x+2,c.y-2,c.w-4,c.h+2)){
       chaseables.splice(j,1);
+      spawnEffect(CHASE_SPRITE[c.kind],'caught',c.x,c.y,c.w,c.h,false);
+      spawnEffect('fx-catch','play',c.x,c.y,c.w,c.h,false);
       var pts=c.kind==='cm'?40:c.kind==='sg'?35:25;
       score+=pts; addPopup(c.x+c.w/2,c.y-4,'+'+pts+' CAUGHT!','#88ff88'); sfxCatch();
     }
@@ -784,7 +910,7 @@ var scroll=0, tick=0, gameSpeed=4.0, levelStart=0;
 function resetLevel() {
   var cfg=LEVEL_CFG[levelIdx];
   player.reset();
-  obstacles.length=0; chaseables.length=0; popups.length=0; lavaRocks.length=0;
+  obstacles.length=0; chaseables.length=0; popups.length=0; lavaRocks.length=0; effects.length=0;
   spawnT=0; spawnI=cfg.spawnI; chaseT=0; scroll=0; tick=0; score=0; scoreTick=0; flash=0; rawrCD=0; eruptT=0;
   gameSpeed=cfg.speed;
   levelStart=performance.now();
@@ -866,10 +992,15 @@ document.addEventListener('keydown',function(e){
 });
 
 // ── Overlay screens ──────────────────────────────────────────────
+var titleAnim=new Animator('idle');
 function drawTitle() {
-  R(0,0,W,GROUND,THEMES[0].skyT); R(0,GROUND*0.5,W,GROUND*0.5,THEMES[0].skyB);
-  R(0,GROUND,W,H-GROUND,THEMES[0].gnd); R(0,GROUND,W,4,THEMES[0].gT);
-  drawDino(50,GROUND-DINO_H,0,false,false,false);
+  if(Assets.hasEnvironment(THEMES[0].env)){ drawBg(0,THEMES[0]); drawGround(0,THEMES[0]); }
+  else {
+    R(0,0,W,GROUND,THEMES[0].skyT); R(0,GROUND*0.5,W,GROUND*0.5,THEMES[0].skyB);
+    R(0,GROUND,W,H-GROUND,THEMES[0].gnd); R(0,GROUND,W,4,THEMES[0].gT);
+  }
+  drawArt('trex',titleAnim,50,GROUND-DINO_H,DINO_W,DINO_H,function(){drawDino(50,GROUND-DINO_H,0,false,false,false);});
+  titleAnim.update();
   R(W/2-152,H/2-72,304,144,'rgba(0,10,40,0.82)');
   ctx.strokeStyle='#ffff44'; ctx.lineWidth=2; ctx.strokeRect(W/2-152,H/2-72,304,144); ctx.lineWidth=1;
   ctx.textAlign='center';
@@ -1003,6 +1134,9 @@ function loop() {
     updateAndDrawChase(gameSpeed);
     if(levelIdx===3)updateLavaRocks(gameSpeed);
     player.update(); player.draw();
+    updateAndDrawEffects(gameSpeed);
+    drawFg(scroll,th);
+    if(Assets.debug)drawDebug();
     updateScore();
     var lvDur=LEVEL_CFG[levelIdx].dur;
     drawHUD(th,Math.max(0,lvDur-(performance.now()-levelStart)));
@@ -1030,8 +1164,8 @@ function loop() {
     }
   }
 
-  if(state===ST.LVLDONE){updateAndDrawObs(0);updateAndDrawChase(0);player.draw();drawLevelDone(th);}
-  if(state===ST.DEAD){player.draw();drawDead();}
+  if(state===ST.LVLDONE){updateAndDrawObs(0);updateAndDrawChase(0);player.draw('idle');updateAndDrawEffects(0);drawFg(scroll,th);drawLevelDone(th);}
+  if(state===ST.DEAD){player.draw('hurt');drawFg(scroll,th);drawDead();}
   if(state===ST.BOARD){drawBoard();}
 }
 requestAnimationFrame(loop);
