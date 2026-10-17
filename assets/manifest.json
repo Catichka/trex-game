@@ -13,6 +13,10 @@
     "fx-catch"
   ],
   "environments": [
-    "grasslands"
+    "grasslands",
+    "volcano",
+    "desert",
+    "swamp",
+    "caverns"
   ]
 }

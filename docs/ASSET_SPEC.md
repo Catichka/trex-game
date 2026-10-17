@@ -156,13 +156,13 @@ a little bigger; we'll tune hitboxes after art lands.
 
 | id | World | Hitbox | | id | World | Hitbox |
 |---|---|---|---|---|---|---|
-| `rock-small` | 1, 2 | 15 × 12 | | `ice-shard-small` | 3 | 15 × 15 |
-| `rock-large` | 1, 2 | 21 × 15 | | `ice-shard-tall` | 3, 5 | 15 × 24 |
-| `log` | 1 | 27 × 9 | | `snowball` | 3 | 18 × 18 |
-| `cactus-small` | 1, 5 | 12 × 21 | | `lava-rock-small` | 4 | 15 × 15 |
-| `cactus-large` | 1 | 18 × 27 | | `lava-rock-large` | 4 | 21 × 21 |
-| `mushroom` | 2 | 18 × 21 | | `fire-geyser` | 4, 5 | 18 × 24 |
-| `stump` | 5 | 18 × 21 | | `fern-log` | (unused) | 24 × 21 |
+| `rock-small` | 1, 2, 3 | 15 × 12 | | `ice-shard-small` | 5 (cave crystal) | 15 × 15 |
+| `rock-large` | 1, 3, 5 | 21 × 15 | | `ice-shard-tall` | 5 (cave crystal) | 15 × 24 |
+| `log` | 1, 4 | 27 × 9 | | `snowball` | (unused) | 18 × 18 |
+| `cactus-small` | 1, 3 | 12 × 21 | | `lava-rock-small` | 2 | 15 × 15 |
+| `cactus-large` | 1, 3 | 18 × 27 | | `lava-rock-large` | 2 | 21 × 21 |
+| `mushroom` | 4 | 18 × 21 | | `fire-geyser` | 2 | 18 × 24 |
+| `stump` | 4, 5 | 18 × 21 | | `fern-log` | 4 | 24 × 21 |
 
 New obstacle types (boulders and so on) are welcome. Open the PR with the art and
 the engine side will add the id and gameplay.
@@ -188,7 +188,7 @@ assets/environments/grasslands/
   sky.png  clouds.png  far.png  mid.png  near.png  ground.png  foreground.png
 ```
 
-World ids: `grasslands` (L1), `forest` (L2), `ice` (L3), `volcano` (L4), `endless` (L5).
+World ids: `grasslands` (L1), `volcano` (L2), `desert` (L3), `swamp` (L4), `caverns` (L5, endless). Lineup chosen by Cat on 2026-10-17 with Five Worlds Balanced V02.
 
 **Layer images are 200 px tall** (the full canvas height) with
 transparency, so you paint each layer in place on a 480 × 200 frame and

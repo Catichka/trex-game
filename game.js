@@ -49,10 +49,10 @@ function askName(callback) {
 const W = 480, H = 200, GROUND = 152, PIX = 3;
 var LEVEL_CFG = [
   { dur:1*60*1000, speed:3.5, spawnI:105, minSpawnI:88  }, // L1 Grasslands  1 min
-  { dur:90*1000,   speed:4.0, spawnI:82,  minSpawnI:65  }, // L2 Forest       1:30
-  { dur:2*60*1000, speed:4.5, spawnI:64,  minSpawnI:50  }, // L3 Ice          2 min
-  { dur:Infinity,  speed:5.0, spawnI:52,  minSpawnI:32  }, // L4 Volcano      endless
-  { dur:Infinity,  speed:5.5, spawnI:46,  minSpawnI:28  }, // L5 Endless
+  { dur:90*1000,   speed:4.0, spawnI:82,  minSpawnI:65  }, // L2 Volcano      1:30
+  { dur:2*60*1000, speed:4.5, spawnI:64,  minSpawnI:50  }, // L3 Desert       2 min
+  { dur:Infinity,  speed:5.0, spawnI:52,  minSpawnI:32  }, // L4 Swamp        endless
+  { dur:Infinity,  speed:5.5, spawnI:46,  minSpawnI:28  }, // L5 Caverns      endless
 ];
 
 function resize() {
@@ -126,18 +126,11 @@ const SONGS = [
    [392,.1],[440,.1],[494,.1],[523,.1],[587,.1],[659,.1],[784,.24,392],[0,.06],
    [659,.15,330],[587,.15,294],[494,.15,247],[392,.46,196],[0,.16]],
 
-  // L2 Forest – Bard Dance inspired: D major jig, fast Celtic triplets
-  // D4=294 E4=330 F#4=370 G4=392 A4=440 B4=494 D5=587 E5=659 F#5=740 A5=880
-  [[587,.11],[659,.11],[587,.11],[440,.11],[494,.11],[440,.11],[587,.11],[494,.11],[440,.11],[392,.28],[0,.06],
-   [370,.11],[440,.11],[494,.11],[587,.11],[659,.11],[587,.11],[494,.11],[440,.11],[370,.11],[440,.28],[0,.06],
-   [440,.11],[494,.11],[587,.11],[659,.11],[587,.11],[494,.11],[440,.11],[392,.11],[370,.11],[330,.28],[0,.06],
-   [294,.11],[370,.11],[440,.11],[494,.11],[587,.11],[494,.11],[440,.11],[370,.11],[330,.11],[294,.36],[0,.1],
-   [880,.11],[740,.11],[659,.11],[587,.11],[659,.11],[740,.11],[880,.26],[0,.06],
-   [740,.11],[659,.11],[587,.11],[494,.11],[587,.11],[659,.11],[740,.26],[0,.06],
-   [587,.11],[494,.11],[440,.11],[370,.11],[440,.11],[494,.11],[587,.11],[494,.11],[440,.11],[370,.28],[0,.06],
-   [330,.11],[370,.11],[440,.11],[494,.11],[440,.11],[370,.11],[294,.44],[0,.14]],
+  // L2 Volcano – intense driving minor
+  [[220,.1],[0,.05],[233,.1],[0,.05],[220,.1],[0,.05],[196,.2],[0,.1],[220,.1],[0,.05],[233,.1],[0,.05],[220,.1],[0,.05],[185,.3],[0,.15],
+   [247,.1],[0,.05],[262,.1],[0,.05],[247,.1],[0,.05],[220,.2],[0,.1],[196,.1],[0,.05],[185,.1],[0,.05],[175,.4],[0,.2]],
 
-  // L3 Ice World – The Power inspired: A minor, sweeping and dramatic
+  // L3 Desert – The Power inspired: A minor, sweeping and dramatic
   // A3=220 C4=262 D4=294 E4=330 G4=392 A4=440 B4=494 C5=523 D5=587 E5=659 G5=784 A5=880
   [[440,.34,220],[0,.08],[523,.22,261],[659,.32,330],[0,.08],[880,.5,440],[0,.14],
    [784,.26,392],[659,.2,330],[587,.2,294],[523,.4,261],[0,.12],
@@ -148,11 +141,18 @@ const SONGS = [
    [523,.2,261],[659,.2,330],[784,.2,392],[880,.2,440],[784,.36,392],[0,.08],
    [659,.26,330],[587,.2,294],[523,.2,261],[440,.58,220],[0,.2]],
 
-  // L4 Volcano – intense driving minor
-  [[220,.1],[0,.05],[233,.1],[0,.05],[220,.1],[0,.05],[196,.2],[0,.1],[220,.1],[0,.05],[233,.1],[0,.05],[220,.1],[0,.05],[185,.3],[0,.15],
-   [247,.1],[0,.05],[262,.1],[0,.05],[247,.1],[0,.05],[220,.2],[0,.1],[196,.1],[0,.05],[185,.1],[0,.05],[175,.4],[0,.2]],
+  // L4 Swamp – Bard Dance inspired: D major jig, fast Celtic triplets
+  // D4=294 E4=330 F#4=370 G4=392 A4=440 B4=494 D5=587 E5=659 F#5=740 A5=880
+  [[587,.11],[659,.11],[587,.11],[440,.11],[494,.11],[440,.11],[587,.11],[494,.11],[440,.11],[392,.28],[0,.06],
+   [370,.11],[440,.11],[494,.11],[587,.11],[659,.11],[587,.11],[494,.11],[440,.11],[370,.11],[440,.28],[0,.06],
+   [440,.11],[494,.11],[587,.11],[659,.11],[587,.11],[494,.11],[440,.11],[392,.11],[370,.11],[330,.28],[0,.06],
+   [294,.11],[370,.11],[440,.11],[494,.11],[587,.11],[494,.11],[440,.11],[370,.11],[330,.11],[294,.36],[0,.1],
+   [880,.11],[740,.11],[659,.11],[587,.11],[659,.11],[740,.11],[880,.26],[0,.06],
+   [740,.11],[659,.11],[587,.11],[494,.11],[587,.11],[659,.11],[740,.26],[0,.06],
+   [587,.11],[494,.11],[440,.11],[370,.11],[440,.11],[494,.11],[587,.11],[494,.11],[440,.11],[370,.28],[0,.06],
+   [330,.11],[370,.11],[440,.11],[494,.11],[440,.11],[370,.11],[294,.44],[0,.14]],
 
-  // L5 Endless – frantic
+  // L5 Caverns (endless) – frantic
   [[523,.09],[0,.04],[587,.09],[0,.04],[659,.09],[0,.04],[698,.09],[0,.04],[659,.09],[0,.04],[587,.09],[0,.04],[523,.18],[0,.08],
    [440,.09],[0,.04],[494,.09],[0,.04],[523,.09],[0,.04],[587,.18],[0,.08],[440,.09],[0,.04],[415,.09],[0,.04],[440,.3],[0,.14]],
 ];
@@ -257,7 +257,7 @@ var ENV_LAYERS=[
   {file:'ground.png',     speed:1, ground:true},
   {file:'foreground.png', speed:1.4, z:'front'},
 ];
-['grasslands','forest','ice','volcano','endless'].forEach(function(id){
+['grasslands','volcano','desert','swamp','caverns'].forEach(function(id){
   Assets.defineEnvironment(id,'assets/environments/'+id,ENV_LAYERS);
 });
 Assets.load();
@@ -474,28 +474,28 @@ var THEMES = [
     obs:['cS','cL','rS','rL','gl','pt','rS','pt'], cloud:'#e8f4ff',
     drawExtra: function(sc){ drawGrassExtra(sc); }
   },
-  { name:'DARK FOREST', env:'forest', num:'2',
-    skyT:'#080e04',skyB:'#142808',hillB:'#0a1806',hillF:'#142e0a',
-    gT:'#3a1a00',gnd:'#2a1200',gTex:'#5a2800',
-    obs:['rS','rL','mu','pt','rS','mu','pt'], cloud:'#202820',
-    drawExtra: function(sc){ drawForestExtra(sc); }
-  },
-  { name:'ICE WORLD', env:'ice', num:'3',
-    skyT:'#102840',skyB:'#2060a0',hillB:'#508090',hillF:'#80b8c8',
-    gT:'#d0eeff',gnd:'#b0d8f0',gTex:'#90c0e0',
-    obs:['iS','iT','pt','sb','pt','pt','iS'], cloud:'#c8e8ff',
-    drawExtra: function(sc){ drawIceExtra(sc); }
-  },
-  { name:'VOLCANO', env:'volcano', num:'4',
+  { name:'VOLCANO', env:'volcano', num:'2', lava:true,
     skyT:'#200800',skyB:'#600808',hillB:'#2a0808',hillF:'#400808',
     gT:'#201008',gnd:'#180808',gTex:'#ff4400',
-    obs:['lS','lL','fg','pt','pt','fg','pt'], cloud:'#402010',
+    obs:['lS','lL','fg','pt','rS','fg','pt'], cloud:'#402010',
     drawExtra: function(sc){ drawVolcanoExtra(sc); }
   },
-  { name:'ENDLESS!', env:'endless', num:'∞',
+  { name:'DESERT', env:'desert', num:'3',
+    skyT:'#3080d0',skyB:'#a0d0f0',hillB:'#c08850',hillF:'#d8a868',
+    gT:'#e0b070',gnd:'#c89050',gTex:'#a87038',
+    obs:['cS','cL','rS','pt','rL','cS','pt'], cloud:'#fff4e0',
+    drawExtra: function(sc){}
+  },
+  { name:'SWAMP', env:'swamp', num:'4',
+    skyT:'#103830',skyB:'#2a6a60',hillB:'#1a4a40',hillF:'#245a4a',
+    gT:'#2a5a3a',gnd:'#1e3a2a',gTex:'#3a6a4a',
+    obs:['mu','fl','pt','gl','st','mu','pt'], cloud:'#80a8a0',
+    drawExtra: function(sc){ drawForestExtra(sc); }
+  },
+  { name:'CAVERNS', env:'caverns', num:'∞',
     skyT:'#100820',skyB:'#301050',hillB:'#200828',hillF:'#301038',
     gT:'#202020',gnd:'#181818',gTex:'#ff00aa',
-    obs:['cS','pt','st','iT','pt','fg','pt'], cloud:'#303050',
+    obs:['iS','pt','st','iT','pt','rL','pt'], cloud:'#303050',
     drawExtra: function(sc){ drawEndlessExtra(sc); }
   },
 ];
@@ -531,29 +531,6 @@ function drawForestExtra(sc) {
   // Fireflies (glowing dotted line in sky)
   ctx.fillStyle='rgba(255,60,60,0.85)';
   for(var f=0;f<8;f++){var ffx=((f*68+sc*0.18)%(W+40)+W+40)%(W+40)-20; var ffy=GROUND*0.35+Math.sin((sc*0.018+f*0.9))*22+f*8; ctx.fillRect(Math.round(ffx),Math.round(ffy),2,2);}
-}
-function drawIceExtra(sc) {
-  // Aurora bands at top
-  var aCols=['rgba(0,200,100,0.18)','rgba(0,130,220,0.18)','rgba(120,0,200,0.14)'];
-  aCols.forEach(function(ac,i){
-    for(var x=0;x<W;x+=6){var h2=Math.round(Math.sin(x*0.022+sc*0.006+i*2)*5); ctx.fillStyle=ac; ctx.fillRect(x,6+i*9+h2,6,10);}
-  });
-  // Hanging icicles from ceiling
-  ctx.fillStyle='rgba(160,230,255,0.82)';
-  for(var k=0;k<14;k++){var ix=((k*38-sc*0.08)%(W+40)+W+40)%(W+40)-20; var ih=7+Math.sin(k*1.9)*4; ctx.beginPath(); ctx.moveTo(Math.round(ix),0); ctx.lineTo(Math.round(ix)+4,ih); ctx.lineTo(Math.round(ix)+8,0); ctx.fill();}
-  // Ice crystals on ground
-  ctx.fillStyle='rgba(180,240,255,0.5)';
-  for(var i=0;i<22;i++){var gx=((i*25-sc*0.1)%(W+30)+W+30)%(W+30)-15; ctx.fillRect(Math.round(gx),GROUND,10,2); ctx.fillRect(Math.round(gx)+2,GROUND-1,6,2);}
-  // Snowfall
-  for(var j=0;j<25;j++){
-    ctx.fillStyle=j%3===0?'rgba(220,240,255,0.85)':'rgba(200,230,255,0.5)';
-    var sx=((j*31+sc*0.28)%(W+10)+W+10)%(W+10)-5;
-    var sy=(j*19+sc*0.45)%GROUND;
-    ctx.fillRect(Math.round(sx),Math.round(sy),j%4===0?2:1,j%4===0?2:1);
-  }
-  // Background ice pillars
-  ctx.fillStyle='rgba(160,220,255,0.3)';
-  for(var p=0;p<5;p++){var px=((p*100-sc*0.06)%(W+80)+W+80)%(W+80)-40; var ph=30+p*8; ctx.fillRect(Math.round(px),GROUND-ph,10,ph);}
 }
 function drawVolcanoExtra(sc) {
   var vsc=sc*0.18;
@@ -799,7 +776,7 @@ function updateAndDrawChase(spd) {
   chaseables=chaseables.filter(function(c){return c.x>-80;});
 }
 
-// ── Lava eruption projectiles (Level 4 only) ─────────────────────
+// ── Lava eruption projectiles (Volcano only) ─────────────────────
 var lavaRocks=[], eruptT=0;
 
 function updateLavaRocks(spd) {
@@ -1190,7 +1167,7 @@ function loop() {
 
     updateAndDrawObs(gameSpeed);
     updateAndDrawChase(gameSpeed);
-    if(levelIdx===3)updateLavaRocks(gameSpeed);
+    if(th.lava)updateLavaRocks(gameSpeed);
     player.update(); player.draw();
     updateAndDrawEffects(gameSpeed);
     drawFg(scroll,th);
@@ -1204,7 +1181,7 @@ function loop() {
       state=ST.LVLDONE; sfxLevelUp(); stopMusic();
       if(score>hiScore){hiScore=score;localStorage.setItem('trex-hi',hiScore);}
     }
-    if(checkCollisions()||(levelIdx===3&&checkLavaCollision())){
+    if(checkCollisions()||(th.lava&&checkLavaCollision())){
       sfxDie(); stopMusic();
       if(score>hiScore){hiScore=score;localStorage.setItem('trex-hi',hiScore);}
       lastScore=score;
