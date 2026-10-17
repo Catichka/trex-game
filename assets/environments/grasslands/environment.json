@@ -71,5 +71,5 @@
     }
   ],
   "notes": "V05 replaces seven V04 layers; all layers 480x200 at (0,0), ground line 152; no sprite scaling. Sky static. Preserve draw order and scroll factors.",
-  "version": "5.0-classic-arcade-polish"
+  "version": "readability-v03"
 }
