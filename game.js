@@ -640,7 +640,7 @@ var player = {
     if(!this.onGround)this.vy+=0.65;
     this.y+=this.vy;
     var fl=GROUND-DINO_H;
-    if(this.y>=fl){var wa=!this.onGround;this.y=fl;this.vy=0;this.onGround=true;this.jumps=0;if(wa){sfxLand();spawnEffect('fx-dust','play',this.x,GROUND-8,DINO_W,8,true);
+    if(this.y>=fl){var wa=!this.onGround;this.y=fl;this.vy=0;this.onGround=true;this.jumps=0;if(wa){sfxLand();spawnEffect('fx-dust','play',this.x,GROUND-16,DINO_W,16,true,{center:true});
       var ln=Assets.animLength('trex','land'); if(isFinite(ln)&&!this.anim.locked)this.anim.playOnce('land','run',ln);}}
     else this.onGround=false;
     if(this.bT>0&&--this.bT===0)this.biting=false;
@@ -874,7 +874,7 @@ function checkCollisions() {
     if(o.bitable&&!player.onGround&&hits(player.mouthX,player.mouthY,player.mouthW,player.mouthH,o.x+3,o.y+3,o.w-6,o.h-6)){
       player.triggerBite(); obstacles.splice(i,1);
       spawnEffect('pterodactyl','eaten',o.x,o.y,o.w,o.h,false,{flipX:true},stickToMouth);
-      spawnEffect('fx-chomp','play',o.x,o.y,o.w,o.h,false,null,stickToMouth);
+      spawnEffect('fx-chomp','play',o.x,o.y,o.w,o.h,false,{center:true},stickToMouth);
       score+=50; addPopup(o.x+o.w/2,o.y-4,'+50 CHOMP!','#ffee44'); sfxBite();
       continue;
     }
@@ -890,7 +890,7 @@ function checkCollisions() {
         var de=spawnEffect(CHASE_SPRITE[c.kind],'defeated',c.x,GROUND-c.h,c.w,c.h,true);
         if(de){de.delay=ce.life; de.life+=90;}
       }
-      spawnEffect('fx-catch','play',c.x,c.y,c.w,c.h,false);
+      spawnEffect('fx-catch','play',c.x,c.y,c.w,c.h,false,{center:true});
       var pts=c.kind==='cm'?40:c.kind==='sg'?35:25;
       score+=pts; addPopup(c.x+c.w/2,c.y-4,'+'+pts+' CAUGHT!','#88ff88'); sfxCatch();
     }

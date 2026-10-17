@@ -1,12 +1,12 @@
 {
   "name": "T-Rex",
   "game": "The T-Rex Game",
-  "version": "3.0-classic-arcade",
+  "version": "4.0-rawr",
   "frame_width": 64,
   "frame_height": 64,
   "atlas": "trex_atlas.png",
   "atlas_width": 512,
-  "atlas_height": 512,
+  "atlas_height": 576,
   "animations": {
     "idle": {
       "fps": 5,
@@ -301,11 +301,49 @@
           "h": 64
         }
       ]
+    },
+    "rawr": {
+      "fps": 10,
+      "loop": true,
+      "frames": [
+        {
+          "x": 0,
+          "y": 512,
+          "w": 64,
+          "h": 64
+        },
+        {
+          "x": 64,
+          "y": 512,
+          "w": 64,
+          "h": 64
+        },
+        {
+          "x": 128,
+          "y": 512,
+          "w": 64,
+          "h": 64
+        },
+        {
+          "x": 192,
+          "y": 512,
+          "w": 64,
+          "h": 64
+        }
+      ]
     }
   },
   "pixel_art": {
     "internal_resolution": 32,
     "scaling": "nearest-neighbor",
     "transparent": true
-  }
+  },
+  "pivot": [
+    35,
+    56
+  ],
+  "frame_size": [
+    64,
+    64
+  ]
 }

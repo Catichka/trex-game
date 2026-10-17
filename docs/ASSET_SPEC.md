@@ -103,7 +103,7 @@ All characters render at integer 1× with image smoothing off, so pixels stay sh
 
 **T-Rex** (Classic Arcade V03): `assets/characters/trex/trex_atlas.png` + `trex_atlas.json`, id `trex`. Frame **64 × 64** (Art Bible), faces **right**. Engine anchor `[35, 56]`: row 56 is the ground line (feet occupy row 55 and up), and x 35 puts the torso over the gameplay hitbox, with the tail hanging back. Keep the feet on row 55 in every grounded frame. Bob the body, not the feet.
 
-V02 (prototype) delivers everything below except `rawr`.
+V04 delivers everything below, including `rawr` (row 8, y = 512).
 
 | Row | Animation | Frames | fps | Loop | Used when | Status |
 |---|---|---|---|---|---|---|
@@ -115,7 +115,7 @@ V02 (prototype) delivers everything below except `rawr`.
 | 5 | `hurt` | 3 | 7 | no | game over | ✅ V02 |
 | 6 | `eat` | 6 | 9 | no | biting a pterodactyl; always plays to the end, even mid-jump | ✅ V02 |
 | 7 | `celebrate` | 6 | 9 | no | level complete | ✅ V02 |
-| – | `rawr` | 4 | 10 | yes | roaring (0.5 to 0.8 s); the engine draws the speech bubble | wanted (shows `idle`) |
+| – | `rawr` | 4 | 10 | yes | roaring (0.5 to 0.8 s); the engine draws the speech bubble | ✅ V04 |
 
 **Pterodactyl**: `assets/characters/pterodactyl/pterodactyl_atlas.png` + `.json`, id `pterodactyl`. Frame **32 × 32**. The art faces **right**, and the engine flips it because it flies toward the T-Rex. Anchor `[18, 23]` centres the body on the 30 × 15 gameplay box. It flies at three heights (box top y = 88, 72, 56; level N uses the first N). All three are above the standing T-Rex's head, so it's prey you jump to catch. The T-Rex only eats it when the **mouth zone** (an 18 × 26 box just ahead of the snout) touches it mid-air. A body hit is a game over.
 
@@ -170,7 +170,7 @@ the engine side will add the id and gameplay.
 ### 3.3 Effects (optional)
 
 `assets/fx/<name>.png`, single row, one-shot animation named `play`
-(default 6 frames at 20 fps). Drawn centred on the bottom of the event.
+(default 6 frames at 20 fps). The effect's pivot is pinned to the **centre** of the event (the landing spot for dust, the mouth for chomp, the caveman for catch). Grasslands V04 delivered all three: 144 × 24 sheets, 24 × 24 cells, pivot `[12, 12]`.
 
 | id | When |
 |---|---|
@@ -218,6 +218,8 @@ easiest; wider layers repeat less.
 | `speed` | Scroll speed relative to the ground (0 = fixed, 1 = moves with the ground and obstacles) |
 | `drift` | Extra px per tick of movement on its own, for example clouds |
 | `y` | Vertical offset (default 0); only needed for layers shorter than 200 px |
+
+The V04 layer format also works: `image` for `file`, `scroll_factor` for `speed`, `offset_y` for `y`. A layer named `ground` replaces the engine's ground drawing, and one named `foreground` draws in front of the characters. Grasslands V04 is the reference set.
 | `z` | `"back"` (default, behind characters) or `"front"` (in front of them; keep it sparse and low so it never hides obstacles) |
 | `ground` | `true` on the terrain layer. Its walking surface must be at **y = 152**. When present, the engine stops drawing its placeholder ground. |
 

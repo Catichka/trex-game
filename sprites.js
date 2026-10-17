@@ -126,7 +126,8 @@ var Assets = (function () {
     var ax = m.anchor ? m.anchor[0] : fw / 2, ay = m.anchor ? m.anchor[1] : fh;
     var flip = opts && opts.flipX;
     var dx = Math.round(bx + bw / 2 - (flip ? fw - ax : ax) * sc);
-    var dy = Math.round(by + bh - ay * sc);
+    // center: pin the anchor to the box centre instead (effects drawn around a point)
+    var dy = Math.round((opts && opts.center ? by + bh / 2 : by + bh) - ay * sc);
     ctx.save();
     if (opts && opts.alpha != null) ctx.globalAlpha = opts.alpha;
     if (flip) {
@@ -162,6 +163,12 @@ var Assets = (function () {
       .then(function (layers) {
         layers.forEach(function (def, i) {
           var L = merge({ speed: 0, y: 0, drift: 0, z: 'back', order: i }, def);
+          // Atlas-style layers: { name, image, scroll_factor, offset_y }
+          if (def.image) L.file = def.image;
+          if (def.scroll_factor != null) L.speed = def.scroll_factor;
+          if (def.offset_y != null) L.y = def.offset_y;
+          if (def.name === 'ground' && def.ground == null) L.ground = true;
+          if (def.name === 'foreground' && !def.z) L.z = 'front';
           loadImage(dir + '/' + L.file, function (img) {
             L.img = img;
             e.layers.push(L);

@@ -1,4 +1,18 @@
 {
-  "sprites": ["trex", "pterodactyl", "caveman"],
-  "environments": []
+  "sprites": [
+    "trex",
+    "pterodactyl",
+    "caveman",
+    "rock-small",
+    "rock-large",
+    "log",
+    "cactus-small",
+    "cactus-large",
+    "fx-dust",
+    "fx-chomp",
+    "fx-catch"
+  ],
+  "environments": [
+    "grasslands"
+  ]
 }
