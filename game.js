@@ -197,14 +197,15 @@ function R(x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(Math.round(x),Math.round(y)
 function anims(list){ // [name,row,frames,fps,loop?]
   var o={}; list.forEach(function(a){o[a[0]]={row:a[1],frames:a[2],fps:a[3],loop:a[4]!==false};}); return o;
 }
-// T-Rex atlas from the art team (assets/characters/trex/trex_atlas.json supplies
-// frame size, rows, fps). Anchor pins the feet (row 58, between the legs, offset
-// so the torso sits over the gameplay hitbox) to the bottom-centre of the box.
-Assets.defineSprite('trex','assets/characters/trex/trex_atlas',{
-  frameWidth:64, frameHeight:64, anchor:[35,58],
-  animations:anims([['idle',0,4,5],['run',1,8,12],['jump',2,4,8,false],['fall',3,4,8,false],['land',4,4,10,false],
-                    ['bite',5,4,20,false],['rawr',6,4,10],['hurt',7,4,8,false]]),
-  fallbacks:{idle:'run',jump:'run',fall:'jump',land:'run',bite:'run',rawr:'idle',hurt:'idle'}
+// T-Rex atlas from the art team (assets/characters/t-rex/trex_atlas.json supplies
+// frame rects and fps). Anchor pins the feet (sprite row 57 = ground line, x 35
+// between the legs, which puts the torso over the gameplay hitbox) to the
+// bottom-centre of the player's box.
+Assets.defineSprite('trex','assets/characters/t-rex/trex_atlas',{
+  frameWidth:64, frameHeight:64, anchor:[35,57],
+  animations:anims([['idle',0,4,5],['run',1,8,12],['jump',2,6,10,false],['fall',3,4,8],['land',4,4,10,false],
+                    ['hurt',5,3,7,false],['eat',6,6,9,false],['celebrate',7,6,9,false]]),
+  fallbacks:{idle:'run',jump:'run',fall:'jump',land:'run',bite:'eat',eat:'run',rawr:'idle',hurt:'idle',celebrate:'idle'}
 });
 Assets.defineSprite('pterodactyl','assets/characters/pterodactyl/pterodactyl',{
   frameWidth:48, frameHeight:32, anchor:[24,24],
@@ -614,14 +615,18 @@ var player = {
     if(big)sfxRawrBig(); else sfxRawrSmall();
   },
 
-  triggerBite:function(){this.biting=true;this.bT=14;},
+  triggerBite:function(){
+    this.biting=true;this.bT=14;
+    // The eat animation is longer than the gameplay bite window; let it finish.
+    var n=Assets.animLength('trex','eat'); if(isFinite(n))this.anim.playOnce('eat','run',n,true);
+  },
 
   update:function(){
     if(!this.onGround)this.vy+=0.65;
     this.y+=this.vy;
     var fl=GROUND-DINO_H;
     if(this.y>=fl){var wa=!this.onGround;this.y=fl;this.vy=0;this.onGround=true;this.jumps=0;if(wa){sfxLand();spawnEffect('fx-dust','play',this.x,GROUND-8,DINO_W,8,true);
-      var ln=Assets.animLength('trex','land'); if(isFinite(ln))this.anim.playOnce('land','run',ln);}}
+      var ln=Assets.animLength('trex','land'); if(isFinite(ln)&&!this.anim.locked)this.anim.playOnce('land','run',ln);}}
     else this.onGround=false;
     if(this.bT>0&&--this.bT===0)this.biting=false;
     if(this.raT>0&&--this.raT===0)this.rawring=false;
@@ -631,6 +636,7 @@ var player = {
   // pose: 'idle' / 'hurt' to override the gameplay-driven animation
   draw:function(pose){
     var a=pose||(this.biting?'bite':this.rawring?'rawr':!this.onGround?(this.vy<0?'jump':'fall'):'run');
+    if(pose)this.anim.locked=false; // screen poses (game over, level done) win
     this.anim.play(a,a!=='run');
     var self=this;
     drawArt('trex',this.anim,this.x,this.y,DINO_W,DINO_H,function(){
@@ -1168,7 +1174,7 @@ function loop() {
     }
   }
 
-  if(state===ST.LVLDONE){updateAndDrawObs(0);updateAndDrawChase(0);player.draw('idle');updateAndDrawEffects(0);drawFg(scroll,th);drawLevelDone(th);}
+  if(state===ST.LVLDONE){updateAndDrawObs(0);updateAndDrawChase(0);player.draw('celebrate');updateAndDrawEffects(0);drawFg(scroll,th);drawLevelDone(th);}
   if(state===ST.DEAD){player.draw('hurt');drawFg(scroll,th);drawDead();}
   if(state===ST.BOARD){drawBoard();}
 }

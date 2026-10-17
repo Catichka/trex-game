@@ -72,7 +72,16 @@ var Assets = (function () {
       var anims = merge(defaults.animations, j.animations || {});
       // Atlas-style metadata: "frame_size": [w, h], "pivot": [x, y]
       if (j.frame_size) { j.frameWidth = j.frame_size[0]; j.frameHeight = j.frame_size[1]; }
+      if (j.frame_width) { j.frameWidth = j.frame_width; j.frameHeight = j.frame_height; }
       if (j.pivot && !j.anchor) j.anchor = j.pivot;
+      // "frames": [{x, y, w, h}, ...] per animation is the same as rects.
+      for (var n in j.animations || {}) {
+        var fa = j.animations[n];
+        if (Array.isArray(fa.frames)) {
+          fa.rects = fa.frames.map(function (r) { return [r.x, r.y, r.w, r.h]; });
+          fa.frames = fa.rects.length;
+        }
+      }
       s.meta = merge(defaults, j);
       s.meta.animations = anims;
       s.meta.fallbacks = defaults.fallbacks || {};
@@ -213,15 +222,16 @@ function Animator(name) { this.name = name || 'idle'; this.t = 0; this.next = nu
 // interrupt: cut a playing one-shot short (e.g. jumping again mid-landing).
 Animator.prototype.play = function (name, interrupt) {
   if (this.next) {
-    if (!interrupt) return; // a one-shot is still playing
+    if (!interrupt || this.locked) return; // a one-shot is still playing
     this.next = null; this.left = Infinity;
   }
   if (name !== this.name) { this.name = name; this.t = 0; }
 };
-Animator.prototype.playOnce = function (name, next, ticks) {
-  this.name = name; this.t = 0; this.next = next; this.left = ticks;
+// locked: gameplay state changes can't cut it short (e.g. a bite mid-jump).
+Animator.prototype.playOnce = function (name, next, ticks, locked) {
+  this.name = name; this.t = 0; this.next = next; this.left = ticks; this.locked = !!locked;
 };
 Animator.prototype.update = function () {
   this.t++;
-  if (this.next && --this.left <= 0) { this.name = this.next; this.next = null; this.t = 0; this.left = Infinity; }
+  if (this.next && --this.left <= 0) { this.name = this.next; this.next = null; this.t = 0; this.left = Infinity; this.locked = false; }
 };
