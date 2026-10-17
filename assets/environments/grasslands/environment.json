@@ -70,5 +70,6 @@
       "offset_y": 0
     }
   ],
-  "notes": "Every image is 480x200; draw at x=0,y=0 before applying parallax offsets. All scrolling layers repeat horizontally."
+  "notes": "V05 replaces seven V04 layers; all layers 480x200 at (0,0), ground line 152; no sprite scaling. Sky static. Preserve draw order and scroll factors.",
+  "version": "5.0-classic-arcade-polish"
 }
