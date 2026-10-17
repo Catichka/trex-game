@@ -1,0 +1,28 @@
+{
+  "name": "mushroom",
+  "image": "mushroom.png",
+  "frame_size": [
+    18,
+    21
+  ],
+  "pivot": [
+    9,
+    20
+  ],
+  "animations": {
+    "idle": {
+      "fps": 1,
+      "loop": true,
+      "frames": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 18,
+          "h": 21
+        }
+      ]
+    }
+  },
+  "ground_y": 152,
+  "rendering": "nearest-neighbor"
+}

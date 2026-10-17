@@ -1,0 +1,28 @@
+{
+  "name": "lava-rock-large",
+  "image": "lava-rock-large.png",
+  "frame_size": [
+    21,
+    21
+  ],
+  "pivot": [
+    10,
+    20
+  ],
+  "animations": {
+    "idle": {
+      "fps": 1,
+      "loop": true,
+      "frames": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 21,
+          "h": 21
+        }
+      ]
+    }
+  },
+  "ground_y": 152,
+  "rendering": "nearest-neighbor"
+}
