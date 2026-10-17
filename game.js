@@ -215,10 +215,13 @@ Assets.defineSprite('pterodactyl','assets/characters/pterodactyl/pterodactyl_atl
   animations:anims([['fly',0,6,10],['glide',1,4,5],['dive',2,4,12,false],['hurt',3,3,8,false],['eaten',4,4,12,false]]),
   fallbacks:{glide:'fly',attack:'dive',dive:'fly',frightened:'hurt',hurt:'fly',eaten:'hurt'}
 });
-Assets.defineSprite('caveman','assets/characters/caveman/caveman',{
-  frameWidth:32, frameHeight:32,
-  animations:anims([['run',0,6,12],['panic',1,6,16],['jump',2,2,8],['stumble',3,4,12,false],['caught',4,6,12,false]]),
-  fallbacks:{panic:'run',jump:'run',stumble:'run',caught:'panic'}
+// Caveman atlas (48x48 cells, faces right = running away from the T-Rex).
+// Anchor puts the feet (sprite row 45) on the bottom-centre of the 14x22 box.
+Assets.defineSprite('caveman','assets/characters/caveman/caveman_atlas',{
+  frameWidth:48, frameHeight:48, anchor:[24,46],
+  animations:anims([['run',0,8,12],['idle',1,4,5],['jump',2,6,9,false],['hurt',3,3,7,false],
+                    ['caught',4,4,8,false],['defeated',5,4,7,false],['respawn',6,4,8,false]]),
+  fallbacks:{panic:'run',idle:'run',jump:'run',stumble:'hurt',hurt:'run',caught:'run',defeated:'caught',respawn:'idle'}
 });
 Assets.defineSprite('small-dino','assets/characters/small-dino/small-dino',{
   frameWidth:24, frameHeight:24,
@@ -272,10 +275,13 @@ function spawnEffect(id,animName,x,y,w,h,vx,opts,follow){
   var n=Assets.animLength(id,animName);
   if(!isFinite(n))return; // no art for it: placeholder style just removes the entity
   var a=new Animator(animName);
-  effects.push({id:id,anim:a,x:x,y:y,w:w,h:h,vx:vx||0,life:n,opts:opts,follow:follow});
+  var e={id:id,anim:a,x:x,y:y,w:w,h:h,vx:vx||0,life:n,opts:opts,follow:follow,delay:0};
+  effects.push(e);
+  return e;
 }
 function updateAndDrawEffects(spd){
   effects.forEach(function(e){
+    if(e.delay>0){e.delay--;return;} // queued behind another effect
     e.x-=e.vx?spd:0;
     if(e.follow)e.follow(e);
     Assets.drawSprite(ctx,e.id,e.anim.name,e.anim.t,e.x,e.y,e.w,e.h,e.opts);
@@ -780,9 +786,9 @@ function updateAndDrawChase(spd) {
       if(mustJump||Math.random()<0.002){c.vy=-8;c.onGround=false;}
     }
     if(!c.onGround){c.vy+=0.5;c.y+=c.vy;var fl=GROUND-c.h;if(c.y>=fl){c.y=fl;c.onGround=true;c.vy=0;
-      var sn=Assets.animLength(CHASE_SPRITE[c.kind],'stumble'); if(isFinite(sn)&&!c.scared)c.anim.playOnce('stumble','run',sn);}}
+      var sn=Assets.animLength(CHASE_SPRITE[c.kind],'stumble'); if(isFinite(sn)&&!c.scared&&Math.random()<0.3)c.anim.playOnce('stumble','run',sn);}}
     c.rT++;if(c.rT>=8){c.rT=0;c.rF=1-c.rF;}
-    c.anim.play(c.scared?'panic':!c.onGround?'jump':'run');
+    c.anim.play(spd===0?'idle':c.scared?'panic':!c.onGround?'jump':'run');
     drawArt(CHASE_SPRITE[c.kind],c.anim,c.x,c.y,c.w,c.h,function(){
       if(c.kind==='sd')drawSmallDino(c.x,c.y,c.rF);
       else if(c.kind==='sg')drawStego(c.x,c.y,c.rF);
@@ -878,7 +884,12 @@ function checkCollisions() {
     var c=chaseables[j];
     if(hits(px,py,pw,ph,c.x+2,c.y-2,c.w-4,c.h+2)){
       chaseables.splice(j,1);
-      spawnEffect(CHASE_SPRITE[c.kind],'caught',c.x,c.y,c.w,c.h,false);
+      var ce=spawnEffect(CHASE_SPRITE[c.kind],'caught',c.x,c.y,c.w,c.h,false);
+      // Then he's left lying dazed on the ground, scrolling away (cartoon, no gore).
+      if(ce&&Assets.hasAnim(CHASE_SPRITE[c.kind],'defeated')){
+        var de=spawnEffect(CHASE_SPRITE[c.kind],'defeated',c.x,GROUND-c.h,c.w,c.h,true);
+        if(de){de.delay=ce.life; de.life+=90;}
+      }
       spawnEffect('fx-catch','play',c.x,c.y,c.w,c.h,false);
       var pts=c.kind==='cm'?40:c.kind==='sg'?35:25;
       score+=pts; addPopup(c.x+c.w/2,c.y-4,'+'+pts+' CAUGHT!','#88ff88'); sfxCatch();

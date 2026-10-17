@@ -98,6 +98,8 @@ var Assets = (function () {
   }
 
   function hasSprite(id) { var s = sprites[id]; return !!(s && s.ready); }
+  // True only if the loaded sheet has this exact animation (no fallbacks).
+  function hasAnim(id, anim) { var s = sprites[id]; return !!(s && s.ready && s.meta.animations[anim]); }
 
   // Draw one frame of sprite `id`, animation `anim`, `t` ticks into it
   // (60 ticks = 1 second). The frame's anchor pixel is placed at the
@@ -206,6 +208,7 @@ var Assets = (function () {
     forcePlaceholders: forcePlaceholders,
     defineSprite: defineSprite,
     hasSprite: hasSprite,
+    hasAnim: hasAnim,
     drawSprite: drawSprite,
     animLength: animLength,
     defineEnvironment: defineEnvironment,

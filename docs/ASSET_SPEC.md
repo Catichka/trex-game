@@ -125,15 +125,17 @@ V02 (prototype) delivers everything below except `rawr`.
 | `hurt` | 3 | 8 | no | scared off by a big RAWR | ✅ V01 |
 | `eaten` | 4 | 12 | no | caught; drawn in the T-Rex's mouth, last frame empty | ✅ V01 |
 
-**Caveman**: `assets/characters/caveman/caveman.png`, id `caveman`. Frame **32 × 32**, faces **right** (running away from the T-Rex).
+**Caveman**: `assets/characters/caveman/caveman_atlas.png` + `.json`, id `caveman`. Frame **48 × 48**, faces **right** (running away from the T-Rex). Anchor `[24, 46]` puts the feet (row 45) on the bottom of the 14 × 22 gameplay box.
 
-| Row | Animation | Frames | fps | Loop | Used when |
+| Animation | Frames | fps | Loop | Used when | Status |
 |---|---|---|---|---|---|
-| 0 | `run` | 6 | 12 | yes | default |
-| 1 | `panic` | 6 | 16 | yes | after a RAWR |
-| 2 | `jump` | 2 | 8 | yes | hopping over obstacles |
-| 3 | `stumble` | 4 | 12 | no | landing from a jump |
-| 4 | `caught` | 6 | 12 | no | caught by the T-Rex |
+| `run` | 8 | 12 | yes | default, and when panicking after a RAWR | ✅ V01 |
+| `idle` | 4 | 5 | yes | level-complete freeze | ✅ V01 |
+| `jump` | 6 | 9 | no | hopping over obstacles | ✅ V01 |
+| `hurt` | 3 | 7 | no | stumble: sometimes after landing a jump | ✅ V01 |
+| `caught` | 4 | 8 | no | caught by the T-Rex (+40) | ✅ V01 |
+| `defeated` | 4 | 7 | no | then left lying dazed, scrolling away | ✅ V01 |
+| `respawn` | 4 | 8 | no | not used yet (cavemen enter from off-screen) | ✅ V01 |
 
 **Small dino**: `assets/characters/small-dino/small-dino.png`, id `small-dino`. Frame **24 × 24**, faces **right**. Rows: `run` (4), `panic` (4), `caught` (6, one-shot).
 
