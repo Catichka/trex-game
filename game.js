@@ -207,10 +207,12 @@ Assets.defineSprite('trex','assets/characters/t-rex/trex_atlas',{
                     ['hurt',5,3,7,false],['eat',6,6,9,false],['celebrate',7,6,9,false]]),
   fallbacks:{idle:'run',jump:'run',fall:'jump',land:'run',bite:'eat',eat:'run',rawr:'idle',hurt:'idle',celebrate:'idle'}
 });
-Assets.defineSprite('pterodactyl','assets/characters/pterodactyl/pterodactyl',{
-  frameWidth:48, frameHeight:32, anchor:[24,24],
-  animations:anims([['fly',0,4,10],['attack',1,4,12],['frightened',2,4,14],['eaten',3,6,12,false]]),
-  fallbacks:{attack:'fly',frightened:'fly',eaten:'frightened'}
+// Pterodactyl atlas (32x32 cells, art faces right; drawn flipped since it flies
+// toward the T-Rex). Anchor centres the body on the 30x15 gameplay box.
+Assets.defineSprite('pterodactyl','assets/characters/pterodactyl/pterodactyl_atlas',{
+  frameWidth:32, frameHeight:32, anchor:[18,23],
+  animations:anims([['fly',0,6,10],['glide',1,4,5],['dive',2,4,12,false],['hurt',3,3,8,false],['eaten',4,4,12,false]]),
+  fallbacks:{glide:'fly',attack:'dive',dive:'fly',frightened:'hurt',hurt:'fly',eaten:'hurt'}
 });
 Assets.defineSprite('caveman','assets/characters/caveman/caveman',{
   frameWidth:32, frameHeight:32,
@@ -263,15 +265,18 @@ function drawArt(id,anim,x,y,w,h,placeholder,opts){
 
 // ── Effects (one-shot animations: eaten, caught, dust…) ──────────
 var effects=[];
-function spawnEffect(id,animName,x,y,w,h,vx,opts){
+// Keeps an effect (e.g. the eaten pterodactyl) in the T-Rex's mouth as it moves.
+function stickToMouth(e){ e.x=player.mouthX+player.mouthW/2-e.w/2; e.y=player.mouthY+player.mouthH/2-e.h/2; }
+function spawnEffect(id,animName,x,y,w,h,vx,opts,follow){
   var n=Assets.animLength(id,animName);
   if(!isFinite(n))return; // no art for it: placeholder style just removes the entity
   var a=new Animator(animName);
-  effects.push({id:id,anim:a,x:x,y:y,w:w,h:h,vx:vx||0,life:n,opts:opts});
+  effects.push({id:id,anim:a,x:x,y:y,w:w,h:h,vx:vx||0,life:n,opts:opts,follow:follow});
 }
 function updateAndDrawEffects(spd){
   effects.forEach(function(e){
     e.x-=e.vx?spd:0;
+    if(e.follow)e.follow(e);
     Assets.drawSprite(ctx,e.id,e.anim.name,e.anim.t,e.x,e.y,e.w,e.h,e.opts);
     e.anim.update(); e.life--;
   });
@@ -607,6 +612,9 @@ var player = {
 
   get hitX(){return this.x+PIX*3;}, get hitY(){return this.y+PIX*2;},
   get hitW(){return PIX*6;},        get hitH(){return this.y+PIX*11-this.hitY;},
+  // Bite zone in front of the snout: catches pterodactyls while airborne.
+  get mouthX(){return this.x+24;},  get mouthY(){return this.y+4;},
+  mouthW:18, mouthH:26,
 
   jump:function(){if(this.jumps<this.MAX_JUMPS){this.vy=-10;this.jumps++;sfxJump();}},
 
@@ -678,12 +686,15 @@ var OBJ = {
   pt:{w:PIX*10,h:PIX*5},
 };
 
+// Pterodactyl flight heights (box top y), lowest first; level N uses the first N.
+// All sit above the standing T-Rex's head, so they're prey you jump to catch.
+var PTERO_TOPS=[GROUND-64,GROUND-80,GROUND-96];
 function spawnObs(th) {
   var kind=th.obs[Math.floor(Math.random()*th.obs.length)];
   var sz=OBJ[kind]||OBJ.cS;
   var oy=GROUND-sz.h;
-  if(kind==='pt'){var allHts=[GROUND-sz.h-18,GROUND-sz.h-38,GROUND-sz.h-58]; var numHts=Math.min(levelIdx+1,3); oy=allHts[Math.floor(Math.random()*numHts)];}
-  obstacles.push({kind:kind,x:W+20,y:oy,w:sz.w,h:sz.h,bitable:kind==='pt',wT:0,wF:0,flee:false,anim:new Animator(kind==='pt'?'fly':'idle')});
+  if(kind==='pt'){var numHts=Math.min(levelIdx+1,3); oy=PTERO_TOPS[Math.floor(Math.random()*numHts)];}
+  obstacles.push({kind:kind,x:W+20,y:oy,w:sz.w,h:sz.h,bitable:kind==='pt',wT:0,wF:0,flee:false,glide:false,gT:60+Math.floor(Math.random()*90),anim:new Animator(kind==='pt'?'fly':'idle')});
   // Occasional paired ground obstacle
   if((kind==='cS'||kind==='st'||kind==='lS')&&Math.random()<0.28){
     var k2=th.obs.filter(function(t){return t!=='pt';})[0]||kind;
@@ -724,8 +735,12 @@ function updateAndDrawObs(spd) {
   obstacles.forEach(function(o){
     o.x-=o.flee?spd+4:spd;
     if(o.kind==='pt'){o.wT++;if(o.wT>=10){o.wT=0;o.wF=1-o.wF;} if(o.flee)o.y-=3;}
-    if(o.kind==='pt')o.anim.play(o.flee?'frightened':(o.x>player.x&&o.x-player.x<110)?'attack':'fly');
-    drawArt(OBS_SPRITE[o.kind],o.anim,o.x,o.y,o.w,o.h,function(){drawObstaclePlaceholder(o);});
+    if(o.kind==='pt'){
+      // Alternate flapping and gliding; dive pose when lunging at the T-Rex.
+      if(--o.gT<=0){o.glide=!o.glide&&Math.random()<0.6; o.gT=o.glide?50:80+Math.floor(Math.random()*60);}
+      o.anim.play(o.flee?'frightened':(o.x>player.x&&o.x-player.x<110)?'attack':o.glide?'glide':'fly');
+    }
+    drawArt(OBS_SPRITE[o.kind],o.anim,o.x,o.y,o.w,o.h,function(){drawObstaclePlaceholder(o);},o.kind==='pt'?{flipX:true}:null);
     o.anim.update();
   });
   obstacles=obstacles.filter(function(o){return o.x>-100&&o.y>-80;});
@@ -818,6 +833,8 @@ function drawDebug(){
   obstacles.forEach(function(o){ctx.strokeRect(o.x+5.5,o.y+5.5,o.w-11,o.h-11);});
   ctx.strokeStyle='#44ff44';
   chaseables.forEach(function(c){ctx.strokeRect(c.x+2.5,c.y-1.5,c.w-5,c.h+1);});
+  ctx.strokeStyle=player.onGround?'rgba(255,255,0,0.35)':'#ffff00';
+  ctx.strokeRect(player.mouthX+0.5,player.mouthY+0.5,player.mouthW-1,player.mouthH-1);
 }
 
 function addPopup(x,y,txt,col){ popups.push({x:x,y:y,txt:txt,col:col||'#ffff00',life:36}); }
@@ -828,14 +845,16 @@ function checkCollisions() {
   for(var i=obstacles.length-1;i>=0;i--){
     var o=obstacles[i];
     if(o.flee)continue;
-    if(hits(px,py,pw,ph,o.x+mg,o.y+mg,o.w-mg*2,o.h-mg*2)){
-      if(o.bitable&&!player.onGround){
-        player.triggerBite(); obstacles.splice(i,1);
-        spawnEffect('pterodactyl','eaten',o.x,o.y,o.w,o.h,false);
-        spawnEffect('fx-chomp','play',o.x,o.y,o.w,o.h,false);
-        score+=50; addPopup(o.x+o.w/2,o.y-4,'+50 CHOMP!','#ffee44');
-      } else return true;
+    // Airborne T-Rex catches a pterodactyl with its mouth, not its body.
+    // Removing it from obstacles right away means it can only score once.
+    if(o.bitable&&!player.onGround&&hits(player.mouthX,player.mouthY,player.mouthW,player.mouthH,o.x+3,o.y+3,o.w-6,o.h-6)){
+      player.triggerBite(); obstacles.splice(i,1);
+      spawnEffect('pterodactyl','eaten',o.x,o.y,o.w,o.h,false,{flipX:true},stickToMouth);
+      spawnEffect('fx-chomp','play',o.x,o.y,o.w,o.h,false,null,stickToMouth);
+      score+=50; addPopup(o.x+o.w/2,o.y-4,'+50 CHOMP!','#ffee44'); sfxBite();
+      continue;
     }
+    if(hits(px,py,pw,ph,o.x+mg,o.y+mg,o.w-mg*2,o.h-mg*2))return true;
   }
   for(var j=chaseables.length-1;j>=0;j--){
     var c=chaseables[j];

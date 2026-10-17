@@ -115,14 +115,15 @@ V02 (prototype) delivers everything below except `rawr`.
 | 7 | `celebrate` | 6 | 9 | no | level complete | ✅ V02 |
 | – | `rawr` | 4 | 10 | yes | roaring (0.5 to 0.8 s); the engine draws the speech bubble | wanted (shows `idle`) |
 
-**Pterodactyl**: `assets/characters/pterodactyl/pterodactyl.png`, id `pterodactyl`. Frame **48 × 32**, faces **left** (it flies toward the T-Rex). Default anchor `[24, 24]` because it flies, so the anchor is the body centre-ish, not feet.
+**Pterodactyl**: `assets/characters/pterodactyl/pterodactyl_atlas.png` + `.json`, id `pterodactyl`. Frame **32 × 32**. The art faces **right**, and the engine flips it because it flies toward the T-Rex. Anchor `[18, 23]` centres the body on the 30 × 15 gameplay box. It flies at three heights (box top y = 88, 72, 56; level N uses the first N). All three are above the standing T-Rex's head, so it's prey you jump to catch. The T-Rex only eats it when the **mouth zone** (an 18 × 26 box just ahead of the snout) touches it mid-air. A body hit is a game over.
 
-| Row | Animation | Frames | fps | Loop | Used when |
+| Animation | Frames | fps | Loop | Used when | Status |
 |---|---|---|---|---|---|
-| 0 | `fly` | 4 | 10 | yes | default |
-| 1 | `attack` | 4 | 12 | yes | within about 110 px of the T-Rex |
-| 2 | `frightened` | 4 | 14 | yes | scared off by a big RAWR, flying away up |
-| 3 | `eaten` | 6 | 12 | no | bitten; plays where it was caught |
+| `fly` | 6 | 10 | yes | default | ✅ V01 |
+| `glide` | 4 | 5 | yes | alternates with `fly` every second or two | ✅ V01 |
+| `dive` | 4 | 12 | no | lunging when within about 110 px of the T-Rex | ✅ V01 |
+| `hurt` | 3 | 8 | no | scared off by a big RAWR | ✅ V01 |
+| `eaten` | 4 | 12 | no | caught; drawn in the T-Rex's mouth, last frame empty | ✅ V01 |
 
 **Caveman**: `assets/characters/caveman/caveman.png`, id `caveman`. Frame **32 × 32**, faces **right** (running away from the T-Rex).
 
