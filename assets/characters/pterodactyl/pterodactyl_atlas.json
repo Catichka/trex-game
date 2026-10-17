@@ -1,11 +1,11 @@
 {
   "game": "The T-Rex Game",
   "character": "Pterodactyl",
-  "version": "1.0",
+  "version": "3.0-classic-arcade",
   "frame_width": 32,
   "frame_height": 32,
   "atlas": "pterodactyl_atlas.png",
-  "atlas_width": 192,
+  "atlas_width": 256,
   "atlas_height": 160,
   "direction": "right",
   "animations": {
@@ -165,5 +165,10 @@
         }
       ]
     }
+  },
+  "pixel_art": {
+    "internal_resolution": 16,
+    "scaling": "nearest-neighbor",
+    "transparent": true
   }
 }

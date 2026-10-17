@@ -99,7 +99,9 @@ example `fall` → `jump` → `run`) until the real one exists.
 
 Default frame layout. Rows in this order; fps values are the defaults.
 
-**T-Rex**: `assets/characters/t-rex/trex_atlas.png` + `trex_atlas.json`, id `trex`. Frame **64 × 64** (Art Bible), faces **right**. Engine anchor `[35, 57]`: row 57 is the ground line (feet occupy row 56 and up), and x 35 puts the torso over the gameplay hitbox, with the tail hanging back. Keep the feet on row 56 in every grounded frame. Bob the body, not the feet.
+All characters render at integer 1× with image smoothing off, so pixels stay sharp. Draw at the final size; the engine never scales sprites.
+
+**T-Rex** (Classic Arcade V03): `assets/characters/trex/trex_atlas.png` + `trex_atlas.json`, id `trex`. Frame **64 × 64** (Art Bible), faces **right**. Engine anchor `[35, 56]`: row 56 is the ground line (feet occupy row 55 and up), and x 35 puts the torso over the gameplay hitbox, with the tail hanging back. Keep the feet on row 55 in every grounded frame. Bob the body, not the feet.
 
 V02 (prototype) delivers everything below except `rawr`.
 
@@ -125,7 +127,7 @@ V02 (prototype) delivers everything below except `rawr`.
 | `hurt` | 3 | 8 | no | scared off by a big RAWR | ✅ V01 |
 | `eaten` | 4 | 12 | no | caught; drawn in the T-Rex's mouth, last frame empty | ✅ V01 |
 
-**Caveman**: `assets/characters/caveman/caveman_atlas.png` + `.json`, id `caveman`. Frame **48 × 48**, faces **right** (running away from the T-Rex). Anchor `[24, 46]` puts the feet (row 45) on the bottom of the 14 × 22 gameplay box.
+**Caveman**: `assets/characters/caveman/caveman_atlas.png` + `.json`, id `caveman`. Frame **32 × 32** (Classic Arcade V03, half the T-Rex cell height), faces **right** (running away from the T-Rex). Anchor `[16, 30]` puts the feet (row 29) on the bottom of the 14 × 22 gameplay box.
 
 | Animation | Frames | fps | Loop | Used when | Status |
 |---|---|---|---|---|---|

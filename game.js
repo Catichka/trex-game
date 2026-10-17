@@ -198,12 +198,12 @@ function R(x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(Math.round(x),Math.round(y)
 function anims(list){ // [name,row,frames,fps,loop?]
   var o={}; list.forEach(function(a){o[a[0]]={row:a[1],frames:a[2],fps:a[3],loop:a[4]!==false};}); return o;
 }
-// T-Rex atlas from the art team (assets/characters/t-rex/trex_atlas.json supplies
-// frame rects and fps). Anchor pins the feet (sprite row 57 = ground line, x 35
+// T-Rex atlas from the art team (Classic Arcade V03; trex_atlas.json supplies
+// frame rects and fps). Anchor pins the feet (sprite row 56 = ground line, x 35
 // between the legs, which puts the torso over the gameplay hitbox) to the
 // bottom-centre of the player's box.
-Assets.defineSprite('trex','assets/characters/t-rex/trex_atlas',{
-  frameWidth:64, frameHeight:64, anchor:[35,57],
+Assets.defineSprite('trex','assets/characters/trex/trex_atlas',{
+  frameWidth:64, frameHeight:64, anchor:[35,56],
   animations:anims([['idle',0,4,5],['run',1,8,12],['jump',2,6,10,false],['fall',3,4,8],['land',4,4,10,false],
                     ['hurt',5,3,7,false],['eat',6,6,9,false],['celebrate',7,6,9,false]]),
   fallbacks:{idle:'run',jump:'run',fall:'jump',land:'run',bite:'eat',eat:'run',rawr:'idle',hurt:'idle',celebrate:'idle'}
@@ -215,10 +215,10 @@ Assets.defineSprite('pterodactyl','assets/characters/pterodactyl/pterodactyl_atl
   animations:anims([['fly',0,6,10],['glide',1,4,5],['dive',2,4,12,false],['hurt',3,3,8,false],['eaten',4,4,12,false]]),
   fallbacks:{glide:'fly',attack:'dive',dive:'fly',frightened:'hurt',hurt:'fly',eaten:'hurt'}
 });
-// Caveman atlas (48x48 cells, faces right = running away from the T-Rex).
-// Anchor puts the feet (sprite row 45) on the bottom-centre of the 14x22 box.
+// Caveman atlas (32x32 cells, faces right = running away from the T-Rex).
+// Anchor puts the feet (sprite row 29, x 16) on the bottom-centre of the 14x22 box.
 Assets.defineSprite('caveman','assets/characters/caveman/caveman_atlas',{
-  frameWidth:48, frameHeight:48, anchor:[24,46],
+  frameWidth:32, frameHeight:32, anchor:[16,30],
   animations:anims([['run',0,8,12],['idle',1,4,5],['jump',2,6,9,false],['hurt',3,3,7,false],
                     ['caught',4,4,8,false],['defeated',5,4,7,false],['respawn',6,4,8,false]]),
   fallbacks:{panic:'run',idle:'run',jump:'run',stumble:'hurt',hurt:'run',caught:'run',defeated:'caught',respawn:'idle'}
