@@ -99,6 +99,7 @@ function sfxCatch()   { beep(600,'square',0.07,0.25); beep(800,'square',0.07,0.2
 function sfxPoints()  { beep(880,'square',0.06,0.18); beep(1100,'square',0.06,0.18,0.08); }
 function sfxDie()     { [400,300,220,150].forEach(function(f,i){beep(f,'square',0.14,0.4,i*0.13);}); }
 function sfxLevelUp() { [523,659,784,1047].forEach(function(f,i){beep(f,'square',0.15,0.28,i*0.1);}); }
+function sfxSwoop()   { freqSlide(1400,500,'square',0.22,0.12); }
 function sfxLavaLand(){ beep(90,'sawtooth',0.2,0.55); beep(140,'square',0.1,0.35,0.08); }
 
 function sfxRawrSmall() {
@@ -689,12 +690,28 @@ var OBJ = {
 // Pterodactyl flight heights (box top y), lowest first; level N uses the first N.
 // All sit above the standing T-Rex's head, so they're prey you jump to catch.
 var PTERO_TOPS=[GROUND-64,GROUND-80,GROUND-96];
+// Swoopers dive at the T-Rex's head once they're close: jump and eat them, or
+// they hit you. Chance per pterodactyl rises with the level.
+var SWOOP_CHANCE=[0.3,0.35,0.4,0.45,0.5];
+var SWOOP_START=170;          // px ahead of the T-Rex where the dive begins
+var SWOOP_END=24;             // px ahead where it reaches head height
+var SWOOP_TOP=GROUND-36;      // box top at the bottom of the dive (head/neck height)
+function updateSwoop(o){
+  if(!o.swoop||o.flee)return;
+  var dx=o.x-player.x;
+  if(!o.swooping){
+    if(dx>SWOOP_START)return;
+    o.swooping=true; o.swoopFromY=o.y; o.anim.playOnce('dive','dive',Infinity); sfxSwoop();
+  }
+  var p=Math.min(1,Math.max(0,(SWOOP_START-dx)/(SWOOP_START-SWOOP_END)));
+  o.y=o.swoopFromY+(SWOOP_TOP-o.swoopFromY)*p*p; // accelerating dive
+}
 function spawnObs(th) {
   var kind=th.obs[Math.floor(Math.random()*th.obs.length)];
   var sz=OBJ[kind]||OBJ.cS;
   var oy=GROUND-sz.h;
   if(kind==='pt'){var numHts=Math.min(levelIdx+1,3); oy=PTERO_TOPS[Math.floor(Math.random()*numHts)];}
-  obstacles.push({kind:kind,x:W+20,y:oy,w:sz.w,h:sz.h,bitable:kind==='pt',wT:0,wF:0,flee:false,glide:false,gT:60+Math.floor(Math.random()*90),anim:new Animator(kind==='pt'?'fly':'idle')});
+  obstacles.push({kind:kind,x:W+20,y:oy,w:sz.w,h:sz.h,bitable:kind==='pt',wT:0,wF:0,flee:false,glide:false,swoop:kind==='pt'&&Math.random()<SWOOP_CHANCE[levelIdx],gT:60+Math.floor(Math.random()*90),anim:new Animator(kind==='pt'?'fly':'idle')});
   // Occasional paired ground obstacle
   if((kind==='cS'||kind==='st'||kind==='lS')&&Math.random()<0.28){
     var k2=th.obs.filter(function(t){return t!=='pt';})[0]||kind;
@@ -736,9 +753,10 @@ function updateAndDrawObs(spd) {
     o.x-=o.flee?spd+4:spd;
     if(o.kind==='pt'){o.wT++;if(o.wT>=10){o.wT=0;o.wF=1-o.wF;} if(o.flee)o.y-=3;}
     if(o.kind==='pt'){
-      // Alternate flapping and gliding; dive pose when lunging at the T-Rex.
+      updateSwoop(o);
+      // Alternate flapping and gliding; dive pose only while swooping.
       if(--o.gT<=0){o.glide=!o.glide&&Math.random()<0.6; o.gT=o.glide?50:80+Math.floor(Math.random()*60);}
-      o.anim.play(o.flee?'frightened':(o.x>player.x&&o.x-player.x<110)?'attack':o.glide?'glide':'fly');
+      o.anim.play(o.flee?'frightened':o.glide?'glide':'fly',o.flee);
     }
     drawArt(OBS_SPRITE[o.kind],o.anim,o.x,o.y,o.w,o.h,function(){drawObstaclePlaceholder(o);},o.kind==='pt'?{flipX:true}:null);
     o.anim.update();

@@ -121,7 +121,7 @@ V02 (prototype) delivers everything below except `rawr`.
 |---|---|---|---|---|---|
 | `fly` | 6 | 10 | yes | default | ✅ V01 |
 | `glide` | 4 | 5 | yes | alternates with `fly` every second or two | ✅ V01 |
-| `dive` | 4 | 12 | no | lunging when within about 110 px of the T-Rex | ✅ V01 |
+| `dive` | 4 | 12 | no | swooping: some pterodactyls dive at the T-Rex's head from about 170 px out (eat it or get hit); the last frame holds for the whole dive | ✅ V01 |
 | `hurt` | 3 | 8 | no | scared off by a big RAWR | ✅ V01 |
 | `eaten` | 4 | 12 | no | caught; drawn in the T-Rex's mouth, last frame empty | ✅ V01 |
 
