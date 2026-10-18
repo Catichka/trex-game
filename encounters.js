@@ -191,6 +191,82 @@ var Encounters = (function () {
   };
   register(mama);
 
+  // ── Rare event: meteor (Volcano) ────────────────────────────────
+  // Idea from the kids' playtest memes. Now and then (1 Volcano run in 4) a
+  // meteor streaks in from the sky. A red circle marks where it will land,
+  // sliding toward you with the ground; it hits just as the circle reaches
+  // you, so be in the air at that moment. Dodging it is worth +100.
+  // ?meteor makes it certain and early (playtesting).
+  var METEOR_FORCE = /meteor/.test(FLAGS), FALL = 110, BLAST = 26, DODGE = 100;
+  var meteor = {
+    exclusive: true, once: true,
+    worlds: function (lv) { return lv === 1; },
+    firstAt: function () {
+      if (METEOR_FORCE) return 300;
+      return Math.random() < 0.25 ? Math.round(rnd(15, 75) * 60) : Infinity;
+    },
+    gap: function () { return Infinity; },
+    start: function () {
+      this.t = 0; this.hit = false; this.state = 'fall'; this.crater = 0;
+      // Target (ground x) lands under the T-Rex after FALL steps.
+      this.tx = player.x + DINO_W / 2 + R_SPEED() * FALL;
+      sfxRumble();
+    },
+    drawBack: function (spd) {
+      this.tx -= spd;
+      if (this.state === 'fall') {
+        spawnT = Math.min(spawnT, -40); // nothing else to jump right now
+        var k = this.t / FALL, pulse = Math.abs(Math.sin(this.t * (0.12 + k * 0.3)));
+        var rw = 10 + k * 16, x = Math.round(this.tx);
+        ctx.globalAlpha = 0.25 + 0.5 * pulse * (0.4 + k);
+        R(x - rw, GROUND - 3, rw * 2, 6, '#ff2a2a');
+        R(x - rw + 3, GROUND - 5, rw * 2 - 6, 10, '#ff2a2a');
+        ctx.globalAlpha = Math.min(1, 0.3 + k); R(x - rw / 2, GROUND - 2, rw, 4, '#ff7a7a');
+        ctx.globalAlpha = 1;
+      } else if (this.crater > 0) {
+        var cx = Math.round(this.tx); this.crater--;
+        R(cx - 18, GROUND - 2, 36, 4, '#3a1a10'); R(cx - 12, GROUND - 4, 24, 3, '#5a2a18');
+        if (this.crater % 10 < 5) R(cx - 4, GROUND - 7, 3, 3, '#ff9a3a');
+        if (this.crater <= 0) finish(this);
+      }
+    },
+    drawFront: function () {
+      if (this.state !== 'fall') return;
+      this.t++;
+      var k = this.t / FALL;
+      // Comes in from high up and to the right, on a slight curve.
+      var mx = this.tx + (1 - k) * 150, my = (GROUND - 14) - (1 - k * k) * (GROUND + 30);
+      drawMeteor(Math.round(mx), Math.round(my), this.t);
+      if (this.t === FALL - 40) sfxRumble();
+      if (this.t >= FALL) this.impact();
+    },
+    impact: function () {
+      this.state = 'crater'; this.crater = 150;
+      sfxLavaLand(); sfxRumble();
+      for (var i = 0; i < 5; i++) spawnEffect('fx-dust', 'play', this.tx - 30 + i * 12, GROUND - 20, 28, 20, true, { center: true });
+      var px = player.hitX + 5, pw = player.hitW - 10, feet = player.hitY + player.hitH - 5;
+      var under = px + pw > this.tx - BLAST && px < this.tx + BLAST;
+      if (under && feet > GROUND - 24) { this.hit = true; return; } // still (nearly) on the ground
+      if (under) { score += DODGE; sfxCatch(); addPopup(player.x, GROUND - 70, 'DODGED! +' + DODGE, '#88ff88'); }
+    }
+  };
+  // A round brown rock with craters, trailing flames (after the meme).
+  function drawMeteor(x0, y0, t) {
+    ctx.save(); ctx.translate(x0, y0); ctx.scale(1.6, 1.6); var x = 0, y = 0;
+    for (var i = 5; i >= 1; i--) {
+      var fx = x + i * 7, fy = y - i * 9, fl = (t + i) % 4 < 2 ? 1 : 0;
+      ctx.globalAlpha = 0.85 - i * 0.12;
+      R(fx - 6 + fl, fy - 6, 12, 12, i > 3 ? '#b81414' : i > 1 ? '#ff4a1a' : '#ff9a1a');
+    }
+    ctx.globalAlpha = 1;
+    R(x - 9, y - 7, 18, 14, '#7a3a1a'); R(x - 7, y - 9, 14, 18, '#7a3a1a');
+    R(x - 5, y - 5, 4, 4, '#4a2010'); R(x + 2, y + 1, 5, 4, '#4a2010'); R(x - 4, y + 3, 3, 3, '#4a2010');
+    R(x + 3, y - 7, 6, 3, '#ffb03a');
+    ctx.restore();
+  }
+  function R_SPEED() { return typeof gameSpeed === 'number' ? gameSpeed : 4; }
+  register(meteor);
+
   return {
     reset: reset,
     tick: tick,
@@ -207,6 +283,6 @@ var Encounters = (function () {
     spawnScale: function () { return running.some(function (e) { return e.exclusive; }) ? 1.5 : 1; },
     blocksPrey: function () { return running.some(function (e) { return e.exclusive; }); },
     chaseEnabled: !CHASE_OFF,
-    _mama: mama // for tests
+    _mama: mama, _meteor: meteor // for tests
   };
 })();
