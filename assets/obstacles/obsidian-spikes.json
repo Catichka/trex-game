@@ -1,0 +1,28 @@
+{
+  "name": "obsidian-spikes",
+  "image": "obsidian-spikes.png",
+  "frame_size": [
+    18,
+    33
+  ],
+  "pivot": [
+    9,
+    32
+  ],
+  "animations": {
+    "idle": {
+      "fps": 1,
+      "loop": true,
+      "frames": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 18,
+          "h": 33
+        }
+      ]
+    }
+  },
+  "ground_y": 152,
+  "rendering": "nearest-neighbor"
+}

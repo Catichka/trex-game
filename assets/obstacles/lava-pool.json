@@ -1,0 +1,40 @@
+{
+  "name": "lava-pool",
+  "image": "lava-pool.png",
+  "frame_size": [
+    36,
+    9
+  ],
+  "pivot": [
+    18,
+    8
+  ],
+  "animations": {
+    "idle": {
+      "fps": 6,
+      "loop": true,
+      "frames": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 36,
+          "h": 9
+        },
+        {
+          "x": 36,
+          "y": 0,
+          "w": 36,
+          "h": 9
+        },
+        {
+          "x": 72,
+          "y": 0,
+          "w": 36,
+          "h": 9
+        }
+      ]
+    }
+  },
+  "ground_y": 152,
+  "rendering": "nearest-neighbor"
+}
