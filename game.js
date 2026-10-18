@@ -1348,7 +1348,7 @@ function step() {
     if(Boss.active()){R(W/2-52,17,104,11,'rgba(0,0,0,0.55)');ctx.textAlign='center';ctx.font='bold 8px monospace';ctx.fillStyle='#d8b8ff';ctx.fillText('BOSS: PHANTOM RAPTOR',W/2,25);ctx.textAlign='left';}
 
     // Level complete check (not endless)
-    if(levelIdx<4&&played>=lvDur&&!Boss.active()){
+    if(levelIdx<4&&played>=lvDur&&!Boss.active()&&!Encounters.blocksPrey()){ // let a chase finish first
       state=ST.LVLDONE; sfxLevelUp(); stopMusic();
       if(score>hiScore){hiScore=score;localStorage.setItem('trex-hi',hiScore);}
     }

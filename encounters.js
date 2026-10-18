@@ -84,13 +84,14 @@ var Encounters = (function () {
   // A big stegosaurus charges in from behind. She creeps closer; RAWR pushes
   // her back (big RAWR more). Survive ~10 s and she trips over a pebble.
   // Placeholder: the stego sprite drawn at 2x with angry eyebrows.
-  // Enabled with ?chase / #chase for playtesting (starts 10 s into a level).
-  var CHASE_ON = /chase/.test(FLAGS);
+  // Once per level, 30-45 s in. ?chase starts it 10 s in (playtesting);
+  // ?nochase turns it off.
+  var CHASE_OFF = /nochase/.test(FLAGS), CHASE_FAST = !CHASE_OFF && /chase/.test(FLAGS);
   var SCALE = 2, MW = 48 * SCALE, MH = 32 * SCALE;
   var mama = {
     exclusive: true, once: true,
-    worlds: function () { return CHASE_ON; },
-    firstAt: function () { return 600; },
+    worlds: function () { return !CHASE_OFF; },
+    firstAt: function () { return CHASE_FAST ? 600 : Math.round(rnd(30, 45) * 60); },
     gap: function () { return Infinity; },
     start: function () {
       this.x = -MW - 30; this.state = 'warn'; this.t = 0; this.anim = new Animator('panic');
@@ -158,6 +159,6 @@ var Encounters = (function () {
     caught: function () { return running.some(function (e) { return e.hit; }); },
     spawnScale: function () { return running.some(function (e) { return e.exclusive; }) ? 1.5 : 1; },
     blocksPrey: function () { return running.some(function (e) { return e.exclusive; }); },
-    chaseEnabled: CHASE_ON
+    chaseEnabled: !CHASE_OFF
   };
 })();
