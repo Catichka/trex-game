@@ -315,6 +315,8 @@ Assets.defineSprite('mama-stego','assets/characters/mama-stego/mama_stego_atlas'
 });
 // Volcano meteor (encounters.js), ChatGPT atlas PR #29: fall 48x48, impact 64x48,
 // crater 48x16, warning 48x12; frames and pivots come from the JSON.
+Assets.defineSprite('hall-torch','assets/ui/hall-torch',{frameWidth:32,frameHeight:48,anchor:[16,48],animations:{idle:{row:0,frames:4,fps:9,loop:true}}});
+Assets.defineSprite('hall-trex-cheer','assets/ui/hall-trex-cheer',{frameWidth:48,frameHeight:48,anchor:[24,48],animations:{celebrate:{row:0,frames:6,fps:9,loop:true}}});
 Assets.defineSprite('meteor','assets/effects/meteor/meteor_atlas',{frameWidth:48, frameHeight:48, animations:{}});
 Assets.defineSprite('stegosaurus','assets/characters/stegosaurus/stegosaurus',{
   frameWidth:48, frameHeight:32,
@@ -1545,10 +1547,13 @@ function drawHallOrnaments(lv,st,t){
   // Torch flames stay OUTSIDE the rows, on the outer stone pillars.
   for(var j=0;j<2;j++){
     var tx=j?right+11:x-12,ty=79;
+    // Sprite is larger and readable on a phone; keep code-drawn fallback.
+    if(!Assets.drawSprite(ctx,'hall-torch','idle',t,tx-15,ty-32,32,48)){
     R(tx-4,ty+6,9,3,'#34252a');R(tx-3,ty+5,7,2,'#c17a3e');
     R(tx-2,ty+2,5,4,'#ff681b');
     R(tx-1,ty-3-Math.round(pulse*2),3,6,'#ffc02d');
     R(tx,ty-1-Math.round(pulse),1,4,'#fff4a0');
+    }
   }
   // Distinct world-specific trim; scenery itself comes from drawBg().
   if(lv===0){for(var g=0;g<5;g++){R(x-10+g*3,bottom-3-g%3*3,2,5,'#67c83a');R(right+g*2,bottom-4-g%3*2,2,5,'#67c83a');}}
@@ -1639,9 +1644,12 @@ function drawBoard() {
   }
 
   // Cheering T-Rex beside the monument (clear of the JUMP button)
-  var hop=reduceMotion?0:Math.round(Math.abs(Math.sin(t*0.09))*-8);
+  // The cheer sheet bounces in its own frames; only the fallback needs a code hop.
+  var hop=reduceMotion||Assets.hasAnim('hall-trex-cheer','celebrate')?0:Math.round(Math.abs(Math.sin(t*0.09))*-8);
   var dx=384, dy=GROUND-DINO_H+hop;
+  if(!Assets.drawSprite(ctx,'hall-trex-cheer','celebrate',t,dx,dy,DINO_W,DINO_H)){
   drawArt('trex',boardDino,dx,dy,DINO_W,DINO_H,function(){drawDino(dx,dy,0,false,hop<0,true);});
+  }
   boardDino.update();
 
   ctx.font='bold 9px monospace';
