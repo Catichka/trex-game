@@ -875,6 +875,13 @@ function checkCollisions() {
   return false;
 }
 
+// Small RAWR (tap / R): 1.5 s cooldown. Big RAWR (hold / E): 5 s cooldown,
+// scares nearby pterodactyls and chaseables. Both can reveal or stun the boss.
+function doRawr(big) {
+  rawrCD=big?300:90; player.rawr(big);
+  if(big)applyRawr();
+  Boss.onRawr(big);
+}
 function applyRawr() {
   obstacles.forEach(function(o){if(o.kind==='pt'&&o.x<player.x+160)o.flee=true;});
   chaseables.forEach(function(c){c.scared=true;});
@@ -941,13 +948,14 @@ var deathCount=0;
 var state=ST.TITLE;
 var levelIdx=parseInt(localStorage.getItem('trex-lv')||'0',10);
 if(levelIdx<0||levelIdx>4)levelIdx=0;
-var scroll=0, tick=0, gameSpeed=4.0;
+var scroll=0, tick=0, gameSpeed=4.0, bossTicks=0; // level timer is frozen during the boss
 var STEP_MS=1000/60; // the game advances in fixed 60 Hz steps; level time is counted in steps
 
 function resetLevel() {
   var cfg=LEVEL_CFG[levelIdx];
   player.reset();
   obstacles.length=0; chaseables.length=0; popups.length=0; lavaRocks.length=0; effects.length=0;
+  Boss.reset(); bossTicks=0;
   spawnT=0; spawnI=cfg.spawnI; chaseT=0; scroll=0; tick=0; score=0; scoreTick=0; flash=0; rawrCD=0; eruptT=0;
   gameSpeed=cfg.speed;
 }
@@ -1005,8 +1013,7 @@ canvas.addEventListener('touchend',function(e){
   rawrHolding=false;
   if(rawrCD>0)return;
   var held=performance.now()-rawrHoldStart;
-  if(held>350){rawrCD=300;player.rawr(true);applyRawr();}
-  else        {rawrCD=90; player.rawr(false);}
+  doRawr(held>350);
 },{passive:false});
 
 canvas.addEventListener('mousedown',function(e){
@@ -1018,14 +1025,13 @@ canvas.addEventListener('mouseup',function(e){
   rawrHolding=false;
   if(state!==ST.PLAY||rawrCD>0)return;
   var held=performance.now()-rawrHoldStart;
-  if(held>350){rawrCD=300;player.rawr(true);applyRawr();}
-  else        {rawrCD=90; player.rawr(false);}
+  doRawr(held>350);
 });
 document.addEventListener('keydown',function(e){
   if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();if(state===ST.PLAY)player.jump();else doTap();}
   if(e.code==='KeyH'&&state===ST.TITLE){boardFromDead=false;state=ST.BOARD;loadBoard();}
-  if(e.code==='KeyR'&&state===ST.PLAY&&rawrCD===0){rawrCD=90;player.rawr(false);}
-  if(e.code==='KeyE'&&state===ST.PLAY&&rawrCD===0){rawrCD=300;player.rawr(true);applyRawr();}
+  if(e.code==='KeyR'&&state===ST.PLAY&&rawrCD===0)doRawr(false);
+  if(e.code==='KeyE'&&state===ST.PLAY&&rawrCD===0)doRawr(true);
 });
 
 // ── Overlay screens ──────────────────────────────────────────────
@@ -1175,13 +1181,18 @@ function step() {
     clouds.forEach(function(c){c.x-=gameSpeed*0.12;if(c.x<-(c.w+20))c.x=W+20;});
 
     var lcfg=LEVEL_CFG[levelIdx];
-    spawnT++;if(spawnT>=spawnI){spawnT=0;if(levelIdx>=3)spawnI=Math.max(lcfg.minSpawnI,spawnI-1);spawnObs(th);}
-    chaseT++;if(chaseT>=chaseI){chaseT=0;spawnChase();}
+    Boss.maybeStart(tick);
+    if(Boss.active())bossTicks++;
+    else{ // the boss encounter replaces random obstacles and prey
+      spawnT++;if(spawnT>=spawnI){spawnT=0;if(levelIdx>=3)spawnI=Math.max(lcfg.minSpawnI,spawnI-1);spawnObs(th);}
+      chaseT++;if(chaseT>=chaseI){chaseT=0;spawnChase();}
+    }
     if(levelIdx>=3&&tick%280===0)gameSpeed=Math.min(levelIdx===4?22:13,gameSpeed+0.35);
     if(rawrCD>0)rawrCD--;
 
     updateAndDrawObs(gameSpeed);
     updateAndDrawChase(gameSpeed);
+    Boss.update(gameSpeed); Boss.draw();
     if(th.lava)updateLavaRocks(gameSpeed);
     player.update(); player.draw();
     updateAndDrawEffects(gameSpeed);
@@ -1189,14 +1200,16 @@ function step() {
     if(Assets.debug)drawDebug();
     updateScore();
     var lvDur=LEVEL_CFG[levelIdx].dur;
-    var played=tick*STEP_MS;
+    var played=(tick-bossTicks)*STEP_MS;
     drawHUD(th,Math.max(0,lvDur-played));
+    if(Boss.active()){R(W/2-52,17,104,11,'rgba(0,0,0,0.55)');ctx.textAlign='center';ctx.font='bold 8px monospace';ctx.fillStyle='#d8b8ff';ctx.fillText('BOSS: PHANTOM RAPTOR',W/2,25);ctx.textAlign='left';}
 
     // Level complete check (not endless)
     if(levelIdx<4&&played>=lvDur){
       state=ST.LVLDONE; sfxLevelUp(); stopMusic();
       if(score>hiScore){hiScore=score;localStorage.setItem('trex-hi',hiScore);}
     }
+    Boss.checkNom();
     if(state===ST.PLAY&&(checkCollisions()||(th.lava&&checkLavaCollision()))){
       sfxDie(); stopMusic();
       if(score>hiScore){hiScore=score;localStorage.setItem('trex-hi',hiScore);}
