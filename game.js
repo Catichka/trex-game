@@ -326,6 +326,7 @@ var OBS_SPRITE={
   cS:'cactus-small', cL:'cactus-large', rS:'rock-small', rL:'rock-large', gl:'log',
   st:'stump', mu:'mushroom', fl:'fern-log', iS:'ice-shard-small', iT:'ice-shard-tall',
   sb:'snowball', lS:'lava-rock-small', lL:'lava-rock-large', fg:'fire-geyser', pt:'pterodactyl',
+  oS:'obsidian-spikes', cT:'charred-tree', sV:'steam-vent', lP:'lava-pool',
 };
 Object.keys(OBS_SPRITE).forEach(function(k){
   var id=OBS_SPRITE[k]; if(id==='pterodactyl')return;
@@ -566,9 +567,10 @@ var THEMES = [
   { name:'VOLCANO', env:'volcano', num:'2', lava:true,
     skyT:'#200800',skyB:'#600808',hillB:'#2a0808',hillF:'#400808',
     gT:'#201008',gnd:'#180808',gTex:'#ff4400',
-    obs:['lL','fg','pt','lB','lS','fg','pt','lL','lB'], cloud:'#402010',
+    obs:['lL','fg','pt','lB','oS','cT','sV','lP','pt','lS','oS','lP'], cloud:'#402010',
     // Ground set pieces (kind, gap px, kind, ...) mixed in for variety.
-    combos:[['lS',6,'lL'],['lL',6,'lS'],['lS',5,'lL',5,'lS'],['lL',150,'fg'],['lB',140,'lL'],['fg',8,'lS'],['lS',4,'lB']],
+    combos:[['lS',6,'lL'],['lS',5,'lL',5,'lS'],['lL',150,'fg'],['lB',140,'lL'],['lS',4,'lB'],
+            ['lP',4,'lS'],['oS',140,'lP'],['cT',150,'sV'],['lP',150,'oS'],['sV',6,'lS']],
     drawExtra: function(sc){ drawVolcanoExtra(sc); }
   },
   { name:'DESERT', env:'desert', num:'3',
@@ -786,6 +788,10 @@ var OBJ = {
   iS:{w:PIX*5,h:PIX*5},  iT:{w:PIX*5,h:PIX*8}, sb:{w:PIX*6,h:PIX*6},
   lS:{w:PIX*5,h:PIX*5},  lL:{w:PIX*7,h:PIX*7}, fg:{w:PIX*6,h:PIX*8},
   lB:{w:32,h:30}, // landed lava bomb: the large lava rock drawn 1.6x
+  // Volcano art PR #33. Boxes hug the solid part: the tree's trunk, the
+  // vent's steam column (always puffing), the spikes. The lava pool is flat:
+  // it only catches feet on the ground (see checkCollisions).
+  oS:{w:16,h:32}, cT:{w:16,h:40}, sV:{w:14,h:26}, lP:{w:36,h:9},
   pt:{w:PIX*10,h:PIX*5},
 };
 
@@ -860,6 +866,11 @@ function drawObstaclePlaceholder(o){
     case 'lL': drawLavaRock(o.x,o.y,true); break;
     case 'fg': drawFireGeyser(o.x,o.y);    break;
     case 'pt': drawPtero(o.x,o.y,o.wF===0);break;
+    // Volcano art fallbacks (only if the PNGs fail to load)
+    case 'oS': R(o.x+3,o.y,10,o.h,'#1a1424'); R(o.x+6,o.y+6,3,12,'#7a5aa8'); break;
+    case 'cT': R(o.x+4,o.y,8,o.h,'#2a1c1c'); R(o.x+6,o.y+12,2,14,'#ff6a1a'); break;
+    case 'sV': R(o.x-4,GROUND-6,o.w+8,6,'#2a2228'); R(o.x+3,o.y,8,o.h-6,'rgba(220,215,225,0.8)'); break;
+    case 'lP': R(o.x,o.y+3,o.w,6,'#ff7a1a'); R(o.x+4,o.y+4,o.w-8,2,'#ffd040'); break;
   }
 }
 
@@ -1055,6 +1066,10 @@ function checkCollisions() {
       spawnEffect('pterodactyl','eaten',o.x,o.y,o.w,o.h,false,{flipX:true},stickToMouth);
       spawnEffect('fx-chomp','play',o.x,o.y,o.w,o.h,false,{center:true},stickToMouth);
       score+=50; addPopup(o.x+o.w/2,o.y-4,'+50 CHOMP!','#ffee44'); sfxBite();
+      continue;
+    }
+    if(o.kind==='lP'){ // lava pool: deadly only to feet on the ground
+      if(player.y+DINO_H>GROUND-6&&px+pw>o.x+6&&px<o.x+o.w-6)return true;
       continue;
     }
     if(hits(px,py,pw,ph,o.x+mg,o.y+mg,o.w-mg*2,o.h-mg*2))return true;

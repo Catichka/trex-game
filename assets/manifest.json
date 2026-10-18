@@ -22,7 +22,11 @@
     "fx-dust",
     "fx-chomp",
     "fx-catch",
-    "meteor"
+    "meteor",
+    "obsidian-spikes",
+    "charred-tree",
+    "steam-vent",
+    "lava-pool"
   ],
   "environments": [
     "grasslands",
