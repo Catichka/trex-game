@@ -1,6 +1,6 @@
 'use strict';
 // ── Phantom Raptor boss (placeholder prototype) ──────────────────
-// Design: docs/design/M2_RAWR_PHANTOM_RAPTOR.md. Enabled with ?boss, which
+// Design: docs/design/M2_RAWR_PHANTOM_RAPTOR.md. Enabled with ?boss (or #boss), which
 // starts the encounter 3 s into any level. One cycle: run in ahead of the
 // T-Rex → telegraph → drop one obstacle → cloak (footprints + eye glint stay
 // visible). Small RAWR reveals it briefly, big RAWR stuns it; a stunned boss
@@ -10,7 +10,7 @@
 // Uses game.js globals at runtime (player, obstacles, THEMES, levelIdx, ...).
 
 var Boss = (function () {
-  var ENABLED = /[?&]boss\b/.test(location.search);
+  var ENABLED = /[?&]boss\b/.test(location.search) || location.hash === '#boss';
   var START_TICK = 180;          // 3 s into the level
   var U = 2;                     // placeholder drawn in 2x2 blocks: 80x60, bigger than the T-Rex
   var W_ = 40 * U, H_ = 30 * U;  // gameplay box
