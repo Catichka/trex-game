@@ -62,7 +62,9 @@ var Assets = (function () {
           if (!an.rects && ((an.row || 0) + 1) * m.frameHeight > img.height) delete m.animations[k];
         }
         m.columns = Math.floor(img.width / m.frameWidth);
-        if (img.width % m.frameWidth || img.height % m.frameHeight)
+        var grid = false;
+        for (k in m.animations) if (!m.animations[k].rects) grid = true;
+        if (grid && (img.width % m.frameWidth || img.height % m.frameHeight))
           console.warn('[assets] ' + path + '.png is ' + img.width + 'x' + img.height +
             ', not a multiple of the ' + m.frameWidth + 'x' + m.frameHeight + ' frame size');
         s.ready = true;
@@ -81,6 +83,8 @@ var Assets = (function () {
           fa.rects = fa.frames.map(function (r) { return [r.x, r.y, r.w, r.h]; });
           fa.frames = fa.rects.length;
         }
+        // Per-animation pivot (frames of different sizes): [x, y] or {x, y}.
+        if (fa.pivot) fa.anchor = Array.isArray(fa.pivot) ? fa.pivot : [fa.pivot.x, fa.pivot.y];
       }
       s.meta = merge(defaults, j);
       s.meta.animations = anims;
@@ -123,7 +127,8 @@ var Assets = (function () {
       if (m.columns) { row += Math.floor(col / m.columns); col = col % m.columns; }
       sx = col * fw; sy = row * fh;
     }
-    var ax = m.anchor ? m.anchor[0] : fw / 2, ay = m.anchor ? m.anchor[1] : fh;
+    var anc = a.anchor || m.anchor;
+    var ax = anc ? anc[0] : fw / 2, ay = anc ? anc[1] : fh;
     var flip = opts && opts.flipX;
     var dx = Math.round(bx + bw / 2 - (flip ? fw - ax : ax) * sc);
     // center: pin the anchor to the box centre instead (effects drawn around a point)

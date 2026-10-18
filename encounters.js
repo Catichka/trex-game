@@ -207,7 +207,7 @@ var Encounters = (function () {
     },
     gap: function () { return Infinity; },
     start: function () {
-      this.t = 0; this.hit = false; this.state = 'fall'; this.crater = 0;
+      this.t = 0; this.hit = false; this.state = 'fall'; this.crater = 0; this.ct = 0;
       // Target (ground x) lands under the T-Rex after FALL steps.
       this.tx = player.x + DINO_W / 2 + R_SPEED() * FALL;
       sfxRumble();
@@ -218,6 +218,15 @@ var Encounters = (function () {
         spawnT = Math.min(spawnT, -40); // nothing else to jump right now
         var k = this.t / FALL, pulse = Math.abs(Math.sin(this.t * (0.12 + k * 0.3)));
         var rw = 10 + k * 16, x = Math.round(this.tx);
+        if (Assets.hasAnim('meteor', 'warning')) {
+          // Grows as the meteor gets closer so it's easy to spot on a phone.
+          var sc = 1.3 + 0.7 * k;
+          ctx.save(); ctx.translate(x, GROUND); ctx.scale(sc, sc);
+          Assets.drawSprite(ctx, 'meteor', 'warning', this.t, -24, -6, 48, 12,
+            { center: true, alpha: Math.min(1, 0.45 + 0.55 * pulse * (0.5 + k)) });
+          ctx.restore();
+          return;
+        }
         ctx.globalAlpha = 0.25 + 0.5 * pulse * (0.4 + k);
         R(x - rw, GROUND - 3, rw * 2, 6, '#ff2a2a');
         R(x - rw + 3, GROUND - 5, rw * 2 - 6, 10, '#ff2a2a');
@@ -225,13 +234,21 @@ var Encounters = (function () {
         ctx.globalAlpha = 1;
       } else if (this.crater > 0) {
         var cx = Math.round(this.tx); this.crater--;
-        R(cx - 18, GROUND - 2, 36, 4, '#3a1a10'); R(cx - 12, GROUND - 4, 24, 3, '#5a2a18');
-        if (this.crater % 10 < 5) R(cx - 4, GROUND - 7, 3, 3, '#ff9a3a');
+        if (Assets.hasAnim('meteor', 'crater')) Assets.drawSprite(ctx, 'meteor', 'crater', this.crater, cx - 24, GROUND - 12, 48, 16);
+        else {
+          R(cx - 18, GROUND - 2, 36, 4, '#3a1a10'); R(cx - 12, GROUND - 4, 24, 3, '#5a2a18');
+          if (this.crater % 10 < 5) R(cx - 4, GROUND - 7, 3, 3, '#ff9a3a');
+        }
         if (this.crater <= 0) finish(this);
       }
     },
     drawFront: function () {
-      if (this.state !== 'fall') return;
+      if (this.state !== 'fall') {
+        // The blast plays over the T-Rex, on the ground where it hit.
+        if (Assets.hasAnim('meteor', 'impact') && this.ct < Assets.animLength('meteor', 'impact'))
+          Assets.drawSprite(ctx, 'meteor', 'impact', this.ct++, Math.round(this.tx) - 32, GROUND - 44, 64, 48);
+        return;
+      }
       this.t++;
       var k = this.t / FALL;
       // Comes in from high up and to the right, on a slight curve.
@@ -250,8 +267,10 @@ var Encounters = (function () {
       if (under) { score += DODGE; sfxCatch(); addPopup(player.x, GROUND - 70, 'DODGED! +' + DODGE, '#88ff88'); }
     }
   };
-  // A round brown rock with craters, trailing flames (after the meme).
+  // ChatGPT's atlas when loaded; otherwise a code-drawn rock with craters,
+  // trailing flames (after the meme).
   function drawMeteor(x0, y0, t) {
+    if (Assets.hasAnim('meteor', 'fall')) { Assets.drawSprite(ctx, 'meteor', 'fall', t, x0 - 24, y0 - 24, 48, 48, { center: true }); return; }
     ctx.save(); ctx.translate(x0, y0); ctx.scale(1.6, 1.6); var x = 0, y = 0;
     for (var i = 5; i >= 1; i--) {
       var fx = x + i * 7, fy = y - i * 9, fl = (t + i) % 4 < 2 ? 1 : 0;
