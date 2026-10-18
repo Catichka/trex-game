@@ -167,6 +167,7 @@ var Sound = (function () {
     ctx(); if (ac.state === 'suspended') ac.resume();
     var arr = score(id);
     if (track && track.id === id) return;
+    stopFile(opts.fade);
     pending = arr ? null : { id: id, opts: opts }; // scores still loading: start when they arrive
     if (track) fadeOut(track, opts.fade || 0.35);
     track = null;
@@ -180,7 +181,49 @@ var Sound = (function () {
   }
   function stop(sec) {
     if (track && ac) fadeOut(track, sec || 0.25);
-    track = null; pending = null;
+    track = null; pending = null; stopFile(sec);
+  }
+
+  // ── Recorded tracks (music alpha test) ──────────────────────────
+  // Plays an audio file as-is, looped, through the music bus (so mute and
+  // the big-RAWR duck still work). No tempo, pitch or arrangement changes.
+  var file = null, buffers = {};
+  function stopFile(sec) {
+    if (!file) return;
+    var f = file; file = null;
+    if (!f.src || !ac) return;
+    var t = ac.currentTime;
+    f.out.gain.setValueAtTime(f.out.gain.value, t);
+    f.out.gain.linearRampToValueAtTime(0, t + (sec || 0.3));
+    setTimeout(function () { try { f.src.stop(); } catch (e) {} f.out.disconnect(); }, (sec || 0.3) * 1000 + 200);
+  }
+  function loadBuffer(url) {
+    if (!buffers[url]) buffers[url] = fetch(url).then(function (r) {
+      if (!r.ok) throw new Error(url + ' ' + r.status);
+      return r.arrayBuffer();
+    }).then(function (b) {
+      return new Promise(function (ok, bad) { ac.decodeAudioData(b, ok, bad); });
+    });
+    buffers[url].catch(function () { delete buffers[url]; });
+    return buffers[url];
+  }
+  // onFail: called if the file can't be fetched or decoded.
+  function playFile(id, url, opts) {
+    opts = opts || {};
+    ctx(); if (ac.state === 'suspended') ac.resume();
+    if (file && file.id === id) return;
+    if (track) fadeOut(track, opts.fade || 0.35);
+    track = null; pending = null; stopFile(opts.fade);
+    var me = file = { id: id, src: null, out: null };
+    loadBuffer(url).then(function (buf) {
+      if (file !== me) return; // something else started meanwhile
+      me.out = ac.createGain(); me.out.gain.value = 1; me.out.connect(musicBus);
+      me.src = ac.createBufferSource(); me.src.buffer = buf; me.src.loop = true;
+      me.src.connect(me.out); me.src.start(ac.currentTime + (opts.delay || 0.05));
+    }).catch(function (e) {
+      console.warn('[music] could not play ' + url, e);
+      if (file === me) { file = null; if (opts.onFail) opts.onFail(); }
+    });
   }
   function scoresReady() { if (pending) { var p = pending; pending = null; play(p.id, p.opts); } }
   // Ominous one-beat sting before the boss loop: low octave hit + noise swell.
@@ -215,7 +258,8 @@ var Sound = (function () {
   var api = {
     ctx: ctx, sfx: null, play: play, stop: stop, scoresReady: scoresReady, duck: duck, fanfare: fanfare,
     toggleMute: toggleMute, isMuted: function () { return muted; },
-    current: function () { return track && track.id; },
+    playFile: playFile,
+    current: function () { return file ? file.id : track && track.id; },
     themes: function () { return window.THEME_SCORES || {}; },
   };
   return api;

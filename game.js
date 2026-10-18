@@ -161,6 +161,33 @@ function sfxRawrBig() {
 var MUSIC_V1 = /[?&]music=v1\b/.test(location.search);
 function worldTheme(lv) { return THEMES[Math.min(lv, THEMES.length - 1)].env; }
 
+// Music alpha test: recorded tracks, played exactly as delivered (no tempo,
+// pitch or arrangement changes). Cat made them the default (2026-10-18);
+// the approved scored themes (Grasslands V4 etc.) stay one switch away for
+// comparison over several runs. Switch: the MUSIC button on the title and
+// game-over screens, the T key, or ?music=test / ?music=original. The choice
+// is remembered on the device.
+var MUSIC_TESTS = {
+  0: { id:'folk-dance-d', name:'FOLK DANCE IN D', src:'assets/audio/experimental/trex_folk_D_developed.wav' },
+  4: { id:'baroque',      name:'BAROQUE',         src:'assets/audio/experimental/trex_baroque_onbeat.wav' },
+};
+var musicTest = true;
+try { musicTest = localStorage.getItem('trex-music-test') !== '0'; } catch (e) {}
+if (/[?&]music=test\b/.test(location.search)) musicTest = true;
+if (/[?&]music=original\b/.test(location.search)) musicTest = false;
+function testTrack(lv) { return musicTest && !MUSIC_V1 ? MUSIC_TESTS[Math.min(lv, 4)] : null; }
+function toggleMusicTest() {
+  musicTest = !musicTest;
+  try { localStorage.setItem('trex-music-test', musicTest ? '1' : '0'); } catch (e) {}
+  if (state === ST.PLAY) playWorldMusic(levelIdx);
+}
+// The world's music: the experimental recording when testing, else the theme.
+function playWorldMusic(lv, opts) {
+  var tt = testTrack(lv);
+  if (tt) Sound.playFile(tt.id, tt.src, Object.assign({}, opts, { onFail: function () { Sound.play(worldTheme(lv), opts); } }));
+  else Sound.play(worldTheme(lv), opts);
+}
+
 // Old songs per level  [freq, duration, optionalHarmonyFreq]
 const SONGS = [
   // L1 Grasslands – Old Time Battles inspired: G major march, martial and sprightly
@@ -229,7 +256,7 @@ function musicTick() {
   } catch(e) { musicTimer = setTimeout(musicTick, 250); }
 }
 function startMusic(lv) {
-  if(!MUSIC_V1){ Sound.play(worldTheme(lv)); return; }
+  if(!MUSIC_V1){ playWorldMusic(lv); return; }
   musicOn=true; musicLevel=Math.min(lv,SONGS.length-1); musicIdx=0;
   var ac=getAC();
   if(ac.state==='suspended'){ ac.resume().then(musicTick); } else { musicTick(); }
@@ -1080,6 +1107,22 @@ function resetLevel() {
   gameSpeed=cfg.speed;
 }
 
+// Music alpha test switch, top centre of the title and game-over screens.
+function drawMusicTestBtn() {
+  if(MUSIC_V1)return;
+  var on=musicTest, x=W/2-85, y=22;
+  R(x,y,170,15,on?'rgba(150,50,190,0.9)':'rgba(0,0,0,0.65)');
+  ctx.strokeStyle=on?'#e0a0ff':'#999'; ctx.strokeRect(x+0.5,y+0.5,169,14);
+  ctx.textAlign='center'; ctx.font='bold 8px monospace'; ctx.fillStyle='#fff';
+  ctx.fillText(on?'♪ MUSIC: NEW  (tap for original V4)':'♪ MUSIC: ORIGINAL V4  (tap for new)',W/2,y+10);
+  ctx.textAlign='left';
+}
+function isOnMusicTestBtn(ex,ey) {
+  if(MUSIC_V1)return false;
+  var r=canvas.getBoundingClientRect(), s=canvas.width/r.width;
+  var cx=(ex-r.left)*s, cy=(ey-r.top)*s;
+  return cx>W/2-90&&cx<W/2+90&&cy>18&&cy<41;
+}
 function isOnHallOfFameBtn(ex,ey) {
   var r=canvas.getBoundingClientRect(), s=canvas.width/r.width;
   var cx=(ex-r.left)*s, cy=(ey-r.top)*s;
@@ -1092,6 +1135,7 @@ function doTap(ex,ey) {
   if(state===ST.BOARD){
     boardFromDead=false; state=ST.TITLE; return;
   }
+  if((state===ST.TITLE||state===ST.DEAD)&&ex!==undefined&&isOnMusicTestBtn(ex,ey)){ toggleMusicTest(); return; }
   if(state===ST.TITLE){
     if(ex!==undefined&&isOnHallOfFameBtn(ex,ey)){
       boardFromDead=false; state=ST.BOARD; loadBoard(); return;
@@ -1153,6 +1197,7 @@ canvas.addEventListener('mouseup',function(e){
 document.addEventListener('keydown',function(e){
   if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();if(state===ST.PLAY)player.jump();else doTap();}
   if(e.code==='KeyM')Sound.toggleMute();
+  if(e.code==='KeyT')toggleMusicTest();
   if(e.code==='KeyH'&&state===ST.TITLE){boardFromDead=false;state=ST.BOARD;loadBoard();}
   // E (or X / F / Right) bites; R roars, hold R for a big RAWR (like the pad).
   if((e.code==='KeyE'||e.code==='KeyX'||e.code==='KeyF'||e.code==='ArrowRight')&&state===ST.PLAY){e.preventDefault();if(!e.repeat)player.bite();}
@@ -1243,6 +1288,7 @@ function drawTitle() {
   ctx.strokeStyle='#ffd700'; ctx.lineWidth=1; ctx.strokeRect(W/2-60,H/2+56,120,18);
   ctx.fillStyle='#ffd700'; ctx.font='bold 9px monospace'; ctx.fillText('🏆 HALL OF FAME (H)',W/2,H/2+68);
   ctx.textAlign='left';
+  drawMusicTestBtn();
 }
 
 function drawLevelDone(th) {
@@ -1268,6 +1314,7 @@ function drawDead() {
   ctx.fillStyle='#aaa'; ctx.font='8px monospace'; ctx.fillText('Loading leaderboard...',W/2,H/2+10);
   ctx.fillStyle='#88ff88'; ctx.font='bold 10px monospace'; ctx.fillText('TAP TO RETRY',W/2,H/2+28);
   ctx.textAlign='left';
+  drawMusicTestBtn();
 }
 
 function drawStarburst(cx,cy,outerR,innerR,pts){
