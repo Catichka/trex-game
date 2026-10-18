@@ -21,7 +21,8 @@
     "ice-shard-tall",
     "fx-dust",
     "fx-chomp",
-    "fx-catch"
+    "fx-catch",
+    "meteor"
   ],
   "environments": [
     "grasslands",
