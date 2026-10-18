@@ -51,10 +51,56 @@ canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edge
   border: none; font-family: monospace; font-weight: bold;
   cursor: pointer; touch-action: auto;
 }
+
+/* On-screen controls (touch devices only; see PAD in game.js) */
+#pad { display: none; }
+body.pad #pad { display: flex; }
+body.portrait { flex-direction: column; justify-content: flex-start; }
+body.portrait canvas { margin: auto 0; }
+body.portrait #pad {
+  flex: none; height: min(46vh, 340px); width: 100%; align-items: stretch; gap: 12px;
+  padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+}
+body.landscape #pad {
+  position: fixed; left: 0; right: 0; bottom: 0; pointer-events: none;
+  justify-content: space-between; align-items: flex-end;
+  padding: 0 calc(10px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));
+}
+#pad .right { display: flex; gap: 12px; }
+body.portrait #pad .right { flex: 1.2; flex-direction: column; }
+.pb {
+  font-family: monospace; font-weight: bold; color: #fff; letter-spacing: 1px;
+  border: 3px solid rgba(255,255,255,0.85); border-radius: 18px;
+  touch-action: none; -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  pointer-events: auto; box-shadow: 0 4px 0 rgba(0,0,0,0.45);
+  transition: transform 0.05s, filter 0.1s;
+}
+body.landscape .pb small { display: none; }
+.pb small { font-size: 10px; opacity: 0.8; font-weight: normal; margin-top: 2px; }
+.pb.down { transform: translateY(3px) scale(0.97); box-shadow: 0 1px 0 rgba(0,0,0,0.45); filter: brightness(1.25); }
+.pb.cool { filter: grayscale(0.8) brightness(0.6); }
+.jump { background: #2f8de0; }
+.bite { background: #e0442f; }
+.rawr { background: #e08a1a; }
+.rawr.big { background: #ffcf2a; color: #402000; }
+body.portrait .pb { font-size: 22px; flex: 1; }
+body.portrait .jump { flex: 1; font-size: 26px; }
+body.landscape .pb { opacity: 0.72; font-size: 15px; width: 17vmin; height: 17vmin; min-width: 64px; min-height: 64px; }
+body.landscape .jump { width: 22vmin; height: 22vmin; min-width: 80px; min-height: 80px; font-size: 18px; }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
+
+<div id="pad">
+  <button id="bJump" class="pb jump" tabindex="-1">JUMP</button>
+  <div class="right">
+    <button id="bBite" class="pb bite" tabindex="-1">BITE</button>
+    <button id="bRawr" class="pb rawr" tabindex="-1">RAWR<small>hold = BIG</small></button>
+  </div>
+</div>
 
 <div id="nameBox">
   <div class="card">

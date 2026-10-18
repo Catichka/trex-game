@@ -73,8 +73,16 @@ var LEVEL_CFG = [
   { dur:Infinity,  speed:5.5, spawnI:46,  minSpawnI:28  }, // L5 Caverns      endless
 ];
 
+// Touch devices get on-screen JUMP / BITE / RAWR buttons (#pad). In portrait
+// they sit under the game; in landscape they float over the bottom corners.
+var PAD=/[?&]pad\b/.test(location.search)||('ontouchstart' in window)||
+        (window.matchMedia&&matchMedia('(pointer:coarse)').matches);
 function resize() {
-  const s = Math.min(window.innerWidth / W, window.innerHeight / H);
+  var pad=document.getElementById('pad'), vw=window.innerWidth, vh=window.innerHeight;
+  var portrait=PAD&&vh>vw;
+  document.body.className=PAD?(portrait?'pad portrait':'pad landscape'):'';
+  if(portrait)vh=Math.max(vw*H/W,vh-Math.min(vh*0.46,340)); // leave the bottom for the buttons
+  const s = Math.min(vw / W, vh / H);
   canvas.style.width  = Math.floor(W * s) + 'px';
   canvas.style.height = Math.floor(H * s) + 'px';
   canvas.width = W; canvas.height = H;
@@ -112,6 +120,7 @@ function freqSlide(s, e, type, dur, vol, delay) {
 
 function sfxJump()    { beep(320,'square',0.09,0.28); beep(500,'square',0.07,0.18,0.07); }
 function sfxLand()    { beep(130,'square',0.05,0.2); }
+function sfxSnap()    { beep(180,'square',0.04,0.3); beep(120,'square',0.05,0.25,0.04); }
 function sfxBite()    { beep(110,'sawtooth',0.07,0.55); beep(75,'sawtooth',0.09,0.45,0.07); }
 function sfxCatch()   { beep(600,'square',0.07,0.25); beep(800,'square',0.07,0.25,0.08); beep(1050,'square',0.07,0.25,0.16); }
 function sfxPoints()  { beep(880,'square',0.06,0.18); beep(1100,'square',0.06,0.18,0.08); }
@@ -229,8 +238,11 @@ function anims(list){ // [name,row,frames,fps,loop?]
 // bottom-centre of the player's box.
 Assets.defineSprite('trex','assets/characters/trex/trex_atlas',{
   frameWidth:64, frameHeight:64, anchor:[35,56],
-  animations:anims([['idle',0,4,5],['run',1,8,12],['jump',2,6,10,false],['fall',3,4,8],['land',4,4,10,false],
-                    ['hurt',5,3,7,false],['eat',6,6,9,false],['celebrate',7,6,9,false]]),
+  animations:Object.assign(anims([['idle',0,4,5],['run',1,8,12],['jump',2,6,10,false],['fall',3,4,8],['land',4,4,10,false],
+                    ['hurt',5,3,7,false],['eat',6,6,9,false],['celebrate',7,6,9,false]]),{
+    // BITE snap (PR #16 brief): eat cells 1, 2, 4, 5 = gape, wide, snap/lunge, recover.
+    // Interim until dedicated bite frames exist; 4 frames at 19fps = 0.21s.
+    bite:{rects:[[64,384,64,64],[128,384,64,64],[256,384,64,64],[320,384,64,64]],frames:4,fps:19,loop:false}}),
   fallbacks:{idle:'run',jump:'run',fall:'jump',land:'run',bite:'eat',eat:'run',rawr:'idle',hurt:'idle',celebrate:'idle'}
 });
 // Pterodactyl atlas (32x32 cells, art faces right; drawn flipped since it flies
@@ -318,6 +330,7 @@ function updateAndDrawEffects(spd){
 // ── T-Rex ────────────────────────────────────────────────────────
 var DC = { g:'#38a048',d:'#1e6028',b:'#70d060',e:'#ffffff',p:'#000000',m:'#e03030' };
 var DINO_H = PIX*14, DINO_W = PIX*10;
+var BITE_CD = 22; // steps between bites (the snap itself lasts 14)
 
 function drawDino(x,y,run,biting,jumping,rawring) {
   var p=PIX; x=Math.round(x); y=Math.round(y);
@@ -621,15 +634,32 @@ var player = {
 
   get hitX(){return this.x+PIX*3;}, get hitY(){return this.y+PIX*2;},
   get hitW(){return PIX*6;},        get hitH(){return this.y+PIX*11-this.hitY;},
-  // Bite zone in front of the snout: catches pterodactyls while airborne.
+  // Mouth: where eaten prey is held. Bite zone: what a BITE can catch, from the
+  // snout down to the feet so it reaches ground prey and head-height swoopers.
   get mouthX(){return this.x+24;},  get mouthY(){return this.y+4;},
   mouthW:18, mouthH:26,
+  get biteX(){return this.x+22;},   get biteY(){return this.y+2;},
+  biteW:24, get biteH(){return DINO_H-2;},
+  biteCD:0,
 
   jump:function(){if(this.jumps<this.MAX_JUMPS){this.vy=-10;this.jumps++;sfxJump();}},
 
   rawr:function(big){
     this.rawring=true; this.rawrSize=big?2:1; this.raT=big?50:28;
     if(big)sfxRawrBig(); else sfxRawrSmall();
+  },
+
+  // BITE button: snap the jaws. Prey in the bite zone during the snap is eaten.
+  bite:function(){
+    if(this.biteCD>0)return;
+    this.biteCD=BITE_CD; this.biting=true; this.bT=14; sfxSnap();
+    // Short 4-frame snap (~0.21s); a catch switches to the longer eat follow-through.
+    var n=Assets.animLength('trex','bite'); if(isFinite(n))this.anim.playOnce('bite','run',n,true);
+    if(navigator.vibrate)try{navigator.vibrate(12);}catch(e){}
+  },
+  // Successful catch: play the full eat animation (doesn't extend the bite window).
+  chomp:function(){
+    var n=Assets.animLength('trex','eat'); if(isFinite(n))this.anim.playOnce('eat','run',n,true);
   },
 
   triggerBite:function(){
@@ -646,6 +676,7 @@ var player = {
       var ln=Assets.animLength('trex','land'); if(isFinite(ln)&&!this.anim.locked)this.anim.playOnce('land','run',ln);}}
     else this.onGround=false;
     if(this.bT>0&&--this.bT===0)this.biting=false;
+    if(this.biteCD>0)this.biteCD--;
     if(this.raT>0&&--this.raT===0)this.rawring=false;
     if(this.onGround){this.rT++;if(this.rT>=7){this.rT=0;this.rF=1-this.rF;}}
   },
@@ -678,7 +709,7 @@ var player = {
 
   reset:function(){
     this.x=55;this.y=GROUND-DINO_H;this.vy=0;this.onGround=true;this.jumps=0;
-    this.rF=0;this.rT=0;this.biting=false;this.bT=0;this.rawring=false;this.raT=0;this.anim=new Animator('run');
+    this.rF=0;this.rT=0;this.biting=false;this.bT=0;this.biteCD=0;this.rawring=false;this.raT=0;this.anim=new Animator('run');
   }
 };
 
@@ -859,8 +890,8 @@ function drawDebug(){
   obstacles.forEach(function(o){ctx.strokeRect(o.x+5.5,o.y+5.5,o.w-11,o.h-11);});
   ctx.strokeStyle='#44ff44';
   chaseables.forEach(function(c){ctx.strokeRect(c.x+2.5,c.y-1.5,c.w-5,c.h+1);});
-  ctx.strokeStyle=player.onGround?'rgba(255,255,0,0.35)':'#ffff00';
-  ctx.strokeRect(player.mouthX+0.5,player.mouthY+0.5,player.mouthW-1,player.mouthH-1);
+  ctx.strokeStyle=player.biting?'#ffff00':'rgba(255,255,0,0.35)';
+  ctx.strokeRect(player.biteX+0.5,player.biteY+0.5,player.biteW-1,player.biteH-1);
 }
 
 function addPopup(x,y,txt,col){ popups.push({x:x,y:y,txt:txt,col:col||'#ffff00',life:36}); }
@@ -871,10 +902,11 @@ function checkCollisions() {
   for(var i=obstacles.length-1;i>=0;i--){
     var o=obstacles[i];
     if(o.flee)continue;
-    // Airborne T-Rex catches a pterodactyl with its mouth, not its body.
-    // Removing it from obstacles right away means it can only score once.
-    if(o.bitable&&!player.onGround&&hits(player.mouthX,player.mouthY,player.mouthW,player.mouthH,o.x+3,o.y+3,o.w-6,o.h-6)){
-      player.triggerBite(); obstacles.splice(i,1);
+    // A pterodactyl in the bite zone during a BITE is eaten (jump for high ones;
+    // swoopers can be bitten from the ground). Removing it right away means it
+    // can only score once.
+    if(o.bitable&&player.biting&&hits(player.biteX,player.biteY,player.biteW,player.biteH,o.x+3,o.y+3,o.w-6,o.h-6)){
+      obstacles.splice(i,1); player.chomp();
       spawnEffect('pterodactyl','eaten',o.x,o.y,o.w,o.h,false,{flipX:true},stickToMouth);
       spawnEffect('fx-chomp','play',o.x,o.y,o.w,o.h,false,{center:true},stickToMouth);
       score+=50; addPopup(o.x+o.w/2,o.y-4,'+50 CHOMP!','#ffee44'); sfxBite();
@@ -884,8 +916,9 @@ function checkCollisions() {
   }
   for(var j=chaseables.length-1;j>=0;j--){
     var c=chaseables[j];
-    if(hits(px,py,pw,ph,c.x+2,c.y-2,c.w-4,c.h+2)){
-      chaseables.splice(j,1);
+    // Prey is only caught by a BITE; running into it without biting just passes.
+    if(player.biting&&hits(player.biteX,player.biteY,player.biteW,player.biteH,c.x+2,c.y-2,c.w-4,c.h+2)){
+      chaseables.splice(j,1); player.chomp();
       var ce=spawnEffect(CHASE_SPRITE[c.kind],'caught',c.x,c.y,c.w,c.h,false);
       // Then he's left lying dazed on the ground, scrolling away (cartoon, no gore).
       if(ce&&Assets.hasAnim(CHASE_SPRITE[c.kind],'defeated')){
@@ -921,6 +954,7 @@ function updateScore(){scoreTick++;if(scoreTick>=6){scoreTick=0;score++;}if(scor
 var rawrCD=0, rawrHoldStart=0, rawrHolding=false;
 
 function drawRawrBtn() {
+  if(PAD)return; // the on-screen pad has its own RAWR button
   var bx=W-52,by=H-28;
   var ready=rawrCD===0;
   R(bx,by,48,24,ready?'rgba(200,100,0,0.88)':'rgba(80,40,0,0.7)');
@@ -946,6 +980,7 @@ function isOnMusicBtn(ex,ey) {
 }
 
 function isOnRawrBtn(ex,ey) {
+  if(PAD)return false;
   var r=canvas.getBoundingClientRect(), s=canvas.width/r.width;
   var cx=(ex-r.left)*s, cy=(ey-r.top)*s;
   return cx>W-56&&cy>H-32;
@@ -1038,7 +1073,7 @@ function doTap(ex,ey) {
 // Input
 canvas.addEventListener('touchstart',function(e){
   e.preventDefault();
-  var t=e.touches[0];
+  var t=e.changedTouches[0];
   if(state!==ST.PLAY){doTap(t.clientX,t.clientY);return;}
   if(isOnMusicBtn(t.clientX,t.clientY)){Sound.toggleMute();return;}
   if(isOnRawrBtn(t.clientX,t.clientY)){
@@ -1073,9 +1108,53 @@ document.addEventListener('keydown',function(e){
   if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();if(state===ST.PLAY)player.jump();else doTap();}
   if(e.code==='KeyM')Sound.toggleMute();
   if(e.code==='KeyH'&&state===ST.TITLE){boardFromDead=false;state=ST.BOARD;loadBoard();}
+  if((e.code==='KeyX'||e.code==='KeyF'||e.code==='ArrowRight')&&state===ST.PLAY){e.preventDefault();player.bite();}
   if(e.code==='KeyR'&&state===ST.PLAY&&rawrCD===0)doRawr(false);
   if(e.code==='KeyE'&&state===ST.PLAY&&rawrCD===0)doRawr(true);
 });
+
+// On-screen buttons. Pointer events per button, so JUMP and BITE/RAWR can be
+// held with different thumbs at once.
+(function(){
+  if(!PAD)return;
+  function on(id,down,up){
+    var el=document.getElementById(id);
+    el.addEventListener('pointerdown',function(e){
+      e.preventDefault(); el.classList.add('down');
+      try{el.setPointerCapture(e.pointerId);}catch(_){}
+      down();
+    });
+    function release(e){ if(!el.classList.contains('down'))return; el.classList.remove('down'); if(up)up(e.type==='pointerup'); }
+    el.addEventListener('pointerup',release);
+    el.addEventListener('pointercancel',release);
+    el.addEventListener('contextmenu',function(e){e.preventDefault();});
+  }
+  on('bJump',function(){ if(state===ST.PLAY)player.jump(); else doTap(); });
+  // Only JUMP starts / restarts, so mashing BITE as you crash can't skip the scores.
+  on('bBite',function(){ if(state===ST.PLAY)player.bite(); });
+  on('bRawr',function(){
+    if(state!==ST.PLAY)return;
+    rawrHolding=true; rawrHoldStart=performance.now();
+  },function(ok){
+    if(!rawrHolding)return;
+    rawrHolding=false;
+    if(!ok||state!==ST.PLAY||rawrCD>0)return;
+    doRawr(performance.now()-rawrHoldStart>350);
+  });
+})();
+// Reflect cooldowns and the big-RAWR charge on the buttons (only touches the DOM on change).
+var padShown='';
+function updatePad(){
+  if(!PAD)return;
+  var b=state===ST.PLAY&&player.biteCD>0, r=state===ST.PLAY&&rawrCD>0;
+  var big=rawrHolding&&performance.now()-rawrHoldStart>350;
+  var key=b+'|'+r+'|'+big+'|'+(r?Math.ceil(rawrCD/60):0);
+  if(key===padShown)return; padShown=key;
+  document.getElementById('bBite').classList.toggle('cool',b);
+  var rb=document.getElementById('bRawr');
+  rb.classList.toggle('cool',r); rb.classList.toggle('big',big);
+  rb.firstChild.textContent=r?Math.ceil(rawrCD/60)+'s':big?'RAAAWR!':'RAWR';
+}
 
 // ── Overlay screens ──────────────────────────────────────────────
 var titleAnim=new Animator('idle');
@@ -1093,10 +1172,14 @@ function drawTitle() {
   ctx.fillStyle='#ffff44'; ctx.font='bold 24px monospace'; ctx.fillText('T-REX RUN!',W/2,H/2-48);
   ctx.fillStyle='#88ff88'; ctx.font='bold 8px monospace'; ctx.fillText('4 WORLDS + ENDLESS  ✦  JUMP ✦ BITE ✦ RAWR!',W/2,H/2-32);
   ctx.fillStyle='#ccc'; ctx.font='8px monospace';
-  ctx.fillText('TAP = jump   Double-tap = double jump',W/2,H/2-16);
-  ctx.fillText('Jump into pterodactyls to BITE them for +50pts',W/2,H/2-2);
-  ctx.fillText('Catch dinos (+25), stegos (+35) & cavemen (+40)!',W/2,H/2+12);
-  ctx.fillText('Tap RAWR! button to scare enemies away',W/2,H/2+26);
+  if(PAD){
+    ctx.fillText('JUMP (tap twice = double jump)   BITE   RAWR',W/2,H/2-16);
+  } else {
+    ctx.fillText('SPACE jump   X bite   R rawr   E big rawr',W/2,H/2-16);
+  }
+  ctx.fillText('BITE pterodactyls (+50) - jump for the high ones!',W/2,H/2-2);
+  ctx.fillText('BITE dinos (+25), stegos (+35) & cavemen (+40)',W/2,H/2+12);
+  ctx.fillText('Hold RAWR for a BIG roar that scares everything',W/2,H/2+26);
   ctx.fillStyle='#88ffff'; ctx.font='bold 11px monospace'; ctx.fillText('TAP TO START',W/2,H/2+46);
   // Hall of Fame button
   R(W/2-60,H/2+56,120,18,'rgba(255,215,0,0.2)');
@@ -1212,6 +1295,7 @@ function loop(now) {
   stepAcc+=dt;
   // Small tolerance so 60 Hz displays with timing jitter still step every frame.
   for(var n=0;stepAcc>=STEP_MS-1&&n<4;n++){stepAcc-=STEP_MS;step();}
+  updatePad();
   if(stepAcc>STEP_MS*4)stepAcc=0;
 }
 function step() {
