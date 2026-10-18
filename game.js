@@ -266,6 +266,12 @@ Assets.defineSprite('small-dino','assets/characters/small-dino/small-dino',{
   animations:anims([['run',0,4,12],['panic',1,4,16],['caught',2,6,12,false]]),
   fallbacks:{panic:'run',caught:'panic'}
 });
+// Mama Stego (encounters.js chase), 96x64 cells facing right, feet on row 62.
+Assets.defineSprite('mama-stego','assets/characters/mama-stego/mama_stego_atlas',{
+  frameWidth:96, frameHeight:64, anchor:[48,62],
+  animations:anims([['run',0,6,12],['stunned',1,4,8],['trip',2,5,10,false],['flinch',3,3,10,false]]),
+  fallbacks:{stunned:'flinch',flinch:'run',trip:'run'}
+});
 Assets.defineSprite('stegosaurus','assets/characters/stegosaurus/stegosaurus',{
   frameWidth:48, frameHeight:32,
   animations:anims([['run',0,4,8],['panic',1,4,12],['caught',2,6,12,false]]),
