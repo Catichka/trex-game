@@ -1644,7 +1644,8 @@ function drawBoard() {
   }
 
   // Cheering T-Rex beside the monument (clear of the JUMP button)
-  var hop=reduceMotion?0:Math.round(Math.abs(Math.sin(t*0.09))*-8);
+  // The cheer sheet bounces in its own frames; only the fallback needs a code hop.
+  var hop=reduceMotion||Assets.hasAnim('hall-trex-cheer','celebrate')?0:Math.round(Math.abs(Math.sin(t*0.09))*-8);
   var dx=384, dy=GROUND-DINO_H+hop;
   if(!Assets.drawSprite(ctx,'hall-trex-cheer','celebrate',t,dx,dy,DINO_W,DINO_H)){
   drawArt('trex',boardDino,dx,dy,DINO_W,DINO_H,function(){drawDino(dx,dy,0,false,hop<0,true);});
