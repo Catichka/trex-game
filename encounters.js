@@ -81,9 +81,10 @@ var Encounters = (function () {
   register(bugs);
 
   // ── Set piece: Angry Mama Stego stampede ────────────────────────
-  // A rumble and a flashing "JUMP!" warn that she's coming from behind, then
-  // she charges past at full speed: jump (a double jump is easiest) and she
-  // runs right underneath you. She makes PASSES charges, then trips over a
+  // A rumble warns that she's coming from behind, then "JUMP!" flashes. She
+  // charges the moment you jump, fast enough to run right underneath you, so
+  // any jump during the prompt clears her. Wait too long and she charges
+  // anyway: then only a well-timed jump saves you. She makes PASSES charges, then trips over a
   // pebble on her way out (+150). Touching her ends the run, like an obstacle.
   // Big RAWR as she arrives makes her stumble and skip that charge.
   // Placeholder: the stego sprite drawn at 2x with angry eyebrows.
@@ -91,7 +92,7 @@ var Encounters = (function () {
   // ?nochase turns it off.
   var CHASE_OFF = /nochase/.test(FLAGS), CHASE_FAST = !CHASE_OFF && /chase/.test(FLAGS);
   var SCALE = 2, MW = 48 * SCALE, MH = 32 * SCALE;
-  var PASSES = 2, WARN = 100, SPEED = 6, BONUS = 150;
+  var PASSES = 2, READY = 50, WARN = 230, SPEED = 12, BONUS = 150;
   var mama = {
     exclusive: true, once: true,
     worlds: function () { return !CHASE_OFF; },
@@ -103,11 +104,15 @@ var Encounters = (function () {
       this.warn();
     },
     warn: function () {
-      this.state = 'warn'; this.t = 0; this.x = -MW - 10; this.stumble = 0;
+      this.state = 'warn'; this.t = 0; this.x = -MW - 10; this.stumble = 0; this.jumped = false;
       spawnT = Math.min(spawnT, -60); // keep the runway clear while she passes
     },
     // Her body, a little inside the sprite so near-misses feel fair.
     box: function () { return { x: this.x + 12, y: GROUND - MH + 14, w: MW - 24, h: MH - 14 }; },
+    // A jump while "JUMP!" shows launches her. Starting just off screen at
+    // SPEED she is under you from about step 7 to 14 of the jump, while even a
+    // single jump keeps you well above her back (steps ~4 to ~26).
+    onJump: function () { if (this.state === 'warn' && this.t >= READY) this.jumped = true; },
     onRawr: function (big) {
       if (!big || this.state !== 'charge' || this.x + MW < player.x - 40 || this.x > player.x) return;
       this.state = 'stumble'; this.t = 0; addPopup(player.x - 10, GROUND - MH - 8, 'EEK!', '#ffe066');
@@ -117,8 +122,12 @@ var Encounters = (function () {
       if (this.state === 'warn') {
         if (this.t % 6 === 0) spawnEffect('fx-dust', 'play', rnd(0, 16), GROUND - 16, 24, 16, true, { center: true });
         if (this.t % 25 === 0) sfxRumble();
-        this.prompt = this.t % 20 < 13;
-        if (this.t >= WARN) { this.state = 'charge'; this.t = 0; this.prompt = false; }
+        spawnT = Math.min(spawnT, -60);
+        this.prompt = this.t >= READY && this.t % 20 < 13;
+        if (this.jumped || this.t >= WARN) {
+          this.state = 'charge'; this.prompt = false;
+          this.x = this.jumped ? -MW - 3 : -MW - 10; this.t = 0;
+        }
       } else if (this.state === 'charge') {
         this.x += SPEED;
         var b = this.box(), mg = 5;
@@ -143,6 +152,10 @@ var Encounters = (function () {
       score += BONUS; sfxCatch(); addPopup(W / 2, 54, 'SHE TRIPPED! +' + BONUS, '#88ff88');
     },
     drawWarning: function () {
+      if (this.t < READY) {
+        ctx.textAlign = 'center'; ctx.font = 'bold 9px monospace'; ctx.fillStyle = '#ffe066';
+        ctx.fillText('get ready...', W / 2, 80); ctx.textAlign = 'left'; return;
+      }
       if (!this.prompt) return;
       // Arrow at the left edge pointing in, plus a big JUMP prompt.
       R(4, GROUND - 40, 10, 22, '#ff5a3a'); R(14, GROUND - 34, 4, 10, '#ff5a3a'); R(18, GROUND - 31, 3, 4, '#ff5a3a');
@@ -150,7 +163,7 @@ var Encounters = (function () {
       ctx.textAlign = 'center'; ctx.font = 'bold 16px monospace';
       ctx.fillStyle = '#402000'; ctx.fillText('JUMP!', W / 2 + 1, 81);
       ctx.fillStyle = '#ffcf2a'; ctx.fillText('JUMP!', W / 2, 80);
-      ctx.font = 'bold 8px monospace'; ctx.fillStyle = '#fff'; ctx.fillText('double jump over Mama Stego', W / 2, 92);
+      ctx.font = 'bold 8px monospace'; ctx.fillStyle = '#fff'; ctx.fillText('jump now: she runs right under you', W / 2, 92);
       ctx.textAlign = 'left';
     },
     drawMama: function () {
@@ -183,7 +196,12 @@ var Encounters = (function () {
     tick: tick,
     drawBack: function (spd) { each(function (e) { if (e.drawBack) e.drawBack(spd); }); },
     drawFront: function (spd) { each(function (e) { if (e.drawFront) e.drawFront(spd); }); },
+    // A jump while "JUMP!" shows launches her. Starting just off screen at
+    // SPEED she is under you from about step 7 to 14 of the jump, while even a
+    // single jump keeps you well above her back (steps ~4 to ~26).
+    onJump: function () { if (this.state === 'warn' && this.t >= READY) this.jumped = true; },
     onRawr: function (big) { each(function (e) { if (e.onRawr) e.onRawr(big); }); },
+    onJump: function () { each(function (e) { if (e.onJump) e.onJump(); }); },
     caught: function () { return running.some(function (e) { return e.hit; }); },
     prompting: function () { return running.some(function (e) { return e.prompt; }); },
     spawnScale: function () { return running.some(function (e) { return e.exclusive; }) ? 1.5 : 1; },
