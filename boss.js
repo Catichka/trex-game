@@ -29,7 +29,8 @@ var Boss = (function () {
   function maybeStart(tick) {
     if (!ENABLED || done || b || tick < START_TICK) return;
     b = { x: W + 20, y: GROUND - H_, state: 'enter', t: 0, dur: 80, alpha: 1, reveal: 0, f: 0, fromX: 0 };
-    sfxLevelUp();
+    // Boss theme takes over from the world music (old music mode: just a jingle).
+    if (MUSIC_V1) sfxLevelUp(); else Sound.play('phantomRaptor', { sting: true, fade: 0.5 });
     addPopup(W / 2, 60, 'PHANTOM RAPTOR!', '#c8a0ff');
   }
 
@@ -117,6 +118,8 @@ var Boss = (function () {
     spawnEffect('fx-chomp', 'play', b.x, b.y, W_, H_, false, { center: true });
     score += SCORE; addPopup(b.x + W_ / 2, b.y - 6, '+' + SCORE + ' NOM!', '#ffee44'); sfxBite(); sfxCatch();
     set('defeat');
+    // Victory flourish, then the world's music comes back.
+    if (!MUSIC_V1) { Sound.fanfare(); Sound.play(worldTheme(levelIdx), { fade: 0.3, delay: 0.8 }); }
   }
 
   function drawRaptor(x, y, f, body, dark) {
