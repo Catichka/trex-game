@@ -238,8 +238,11 @@ function anims(list){ // [name,row,frames,fps,loop?]
 // bottom-centre of the player's box.
 Assets.defineSprite('trex','assets/characters/trex/trex_atlas',{
   frameWidth:64, frameHeight:64, anchor:[35,56],
-  animations:anims([['idle',0,4,5],['run',1,8,12],['jump',2,6,10,false],['fall',3,4,8],['land',4,4,10,false],
-                    ['hurt',5,3,7,false],['eat',6,6,9,false],['celebrate',7,6,9,false]]),
+  animations:Object.assign(anims([['idle',0,4,5],['run',1,8,12],['jump',2,6,10,false],['fall',3,4,8],['land',4,4,10,false],
+                    ['hurt',5,3,7,false],['eat',6,6,9,false],['celebrate',7,6,9,false]]),{
+    // BITE snap (PR #16 brief): eat cells 1, 2, 4, 5 = gape, wide, snap/lunge, recover.
+    // Interim until dedicated bite frames exist; 4 frames at 19fps = 0.21s.
+    bite:{rects:[[64,384,64,64],[128,384,64,64],[256,384,64,64],[320,384,64,64]],frames:4,fps:19,loop:false}}),
   fallbacks:{idle:'run',jump:'run',fall:'jump',land:'run',bite:'eat',eat:'run',rawr:'idle',hurt:'idle',celebrate:'idle'}
 });
 // Pterodactyl atlas (32x32 cells, art faces right; drawn flipped since it flies
@@ -649,8 +652,14 @@ var player = {
   // BITE button: snap the jaws. Prey in the bite zone during the snap is eaten.
   bite:function(){
     if(this.biteCD>0)return;
-    this.biteCD=BITE_CD; this.triggerBite(); sfxSnap();
+    this.biteCD=BITE_CD; this.biting=true; this.bT=14; sfxSnap();
+    // Short 4-frame snap (~0.21s); a catch switches to the longer eat follow-through.
+    var n=Assets.animLength('trex','bite'); if(isFinite(n))this.anim.playOnce('bite','run',n,true);
     if(navigator.vibrate)try{navigator.vibrate(12);}catch(e){}
+  },
+  // Successful catch: play the full eat animation (doesn't extend the bite window).
+  chomp:function(){
+    var n=Assets.animLength('trex','eat'); if(isFinite(n))this.anim.playOnce('eat','run',n,true);
   },
 
   triggerBite:function(){
@@ -897,7 +906,7 @@ function checkCollisions() {
     // swoopers can be bitten from the ground). Removing it right away means it
     // can only score once.
     if(o.bitable&&player.biting&&hits(player.biteX,player.biteY,player.biteW,player.biteH,o.x+3,o.y+3,o.w-6,o.h-6)){
-      obstacles.splice(i,1);
+      obstacles.splice(i,1); player.chomp();
       spawnEffect('pterodactyl','eaten',o.x,o.y,o.w,o.h,false,{flipX:true},stickToMouth);
       spawnEffect('fx-chomp','play',o.x,o.y,o.w,o.h,false,{center:true},stickToMouth);
       score+=50; addPopup(o.x+o.w/2,o.y-4,'+50 CHOMP!','#ffee44'); sfxBite();
@@ -909,7 +918,7 @@ function checkCollisions() {
     var c=chaseables[j];
     // Prey is only caught by a BITE; running into it without biting just passes.
     if(player.biting&&hits(player.biteX,player.biteY,player.biteW,player.biteH,c.x+2,c.y-2,c.w-4,c.h+2)){
-      chaseables.splice(j,1);
+      chaseables.splice(j,1); player.chomp();
       var ce=spawnEffect(CHASE_SPRITE[c.kind],'caught',c.x,c.y,c.w,c.h,false);
       // Then he's left lying dazed on the ground, scrolling away (cartoon, no gore).
       if(ce&&Assets.hasAnim(CHASE_SPRITE[c.kind],'defeated')){
