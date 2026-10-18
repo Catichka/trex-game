@@ -158,13 +158,17 @@ var Encounters = (function () {
       var tumble = this.state === 'trip' && this.t > 20;
       ctx.save();
       if (tumble) { ctx.translate(x + MW / 2, y + MH / 2); ctx.rotate(Math.min(1.5, (this.t - 20) * 0.1)); ctx.translate(-(x + MW / 2), -(y + MH / 2)); }
-      ctx.translate(x, y - bob); ctx.scale(SCALE, SCALE);
-      if (!Assets.drawSprite(ctx, 'stegosaurus', this.anim.name, this.anim.t, 0, 0, 48, 32)) {
-        R(0, 10, 44, 18, '#6aa04a'); R(30, 6, 14, 10, '#6aa04a');
+      // ChatGPT's Mama Stego atlas (96x64, PR #23); older fallback: the stego at 2x.
+      var art = Assets.hasSprite('mama-stego');
+      this.anim.play(this.state === 'charge' ? 'run' : this.state === 'stumble' ? (this.t < 18 ? 'flinch' : 'stunned') : 'trip');
+      if (art) Assets.drawSprite(ctx, 'mama-stego', this.anim.name, this.anim.t, x, y, MW, MH);
+      else {
+        ctx.translate(x, y - bob); ctx.scale(SCALE, SCALE);
+        if (!Assets.drawSprite(ctx, 'stegosaurus', 'panic', this.anim.t, 0, 0, 48, 32)) { R(0, 10, 44, 18, '#6aa04a'); R(30, 6, 14, 10, '#6aa04a'); }
       }
       ctx.restore();
       this.anim.update();
-      if (!tumble) {
+      if (!tumble && !art) {
         R(x + MW - 26, y + 14 - bob, 8, 2, '#3a1010'); R(x + MW - 20, y + 12 - bob, 4, 2, '#3a1010'); // eyebrow
         if (this.t % 16 < 8) { R(x + MW - 34, y + 2 - bob, 4, 4, '#f0f0f0'); R(x + MW - 30, y - 2 - bob, 3, 3, '#f0f0f0'); }
       }
