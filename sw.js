@@ -1,5 +1,5 @@
-const CACHE = 'trex-v14';
-const FILES = ['/', '/index.html', '/sprites.js', '/game.js', '/manifest.json'];
+const CACHE = 'trex-v15';
+const FILES = ['/', '/index.html', '/sprites.js', '/boss.js', '/game.js', '/manifest.json'];
 
 self.addEventListener('install', function(e) {
   e.waitUntil(caches.open(CACHE).then(function(c){ return c.addAll(FILES); }));
