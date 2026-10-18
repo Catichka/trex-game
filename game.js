@@ -816,7 +816,21 @@ function updateAndDrawChase(spd) {
   chaseables.forEach(function(c){
     var baseSpd=c.kind==='sg'?spd*0.62:spd*0.55; // stego moves a bit faster (harder to catch)
     var mv=c.scared?spd+3.5:baseSpd;
+    if(c.tripT>0){ // tripped: lies there, sliding away with the ground, then gets up
+      c.tripT--; c.x-=spd; c.anim.play('hurt');
+      drawArt(CHASE_SPRITE[c.kind],c.anim,c.x,c.y,c.w,c.h,function(){drawCaveman(c.x,c.y,0);});
+      c.anim.update(); return;
+    }
     c.x-=mv;
+    // A caveman who runs into an obstacle trips over it (he misjudges some jumps).
+    if(c.kind==='cm'&&c.y>GROUND-c.h-6&&!c.tripped)for(var ti=0;ti<obstacles.length;ti++){
+      var to=obstacles[ti];
+      if(to.kind==='pt'||to.flee)continue;
+      if(hits(c.x+3,c.y,c.w-6,c.h,to.x+2,to.y+2,to.w-4,to.h-2)){
+        c.tripT=60; c.tripped=true; c.y=GROUND-c.h; c.vy=0; c.onGround=true; c.anim.playOnce('hurt','run',60);
+        addPopup(c.x+c.w/2,c.y-6,'OOF!','#ffd27a'); sfxLand(); return;
+      }
+    }
     if(c.kind==='cm'&&c.onGround){
       var mustJump=false;
       for(var oi=0;oi<obstacles.length;oi++){
@@ -825,6 +839,9 @@ function updateAndDrawChase(spd) {
         var gap=ob.x-(c.x+c.w);
         if(gap>0&&gap<60){mustJump=true;break;}
       }
+      // Each caveman is either careful or clumsy; clumsy ones jump late and trip.
+      if(c.clumsy===undefined)c.clumsy=Math.random()<0.35;
+      if(c.clumsy)mustJump=false;
       if(mustJump||Math.random()<0.002){c.vy=-8;c.onGround=false;}
     }
     if(!c.onGround){c.vy+=0.5;c.y+=c.vy;var fl=GROUND-c.h;if(c.y>=fl){c.y=fl;c.onGround=true;c.vy=0;
@@ -928,15 +945,11 @@ function checkCollisions() {
     // Prey is only caught by a BITE; running into it without biting just passes.
     if(player.biting&&hits(player.biteX,player.biteY,player.biteW,player.biteH,c.x+2,c.y-2,c.w-4,c.h+2)){
       chaseables.splice(j,1); player.chomp();
-      var ce=spawnEffect(CHASE_SPRITE[c.kind],'caught',c.x,c.y,c.w,c.h,false);
-      // Then he's left lying dazed on the ground, scrolling away (cartoon, no gore).
-      if(ce&&Assets.hasAnim(CHASE_SPRITE[c.kind],'defeated')){
-        var de=spawnEffect(CHASE_SPRITE[c.kind],'defeated',c.x,GROUND-c.h,c.w,c.h,true);
-        if(de){de.delay=ce.life; de.life+=90;}
-      }
-      spawnEffect('fx-catch','play',c.x,c.y,c.w,c.h,false,{center:true});
+      // Into the T-Rex's mouth (like a pterodactyl): it struggles there, then gulp.
+      spawnEffect(CHASE_SPRITE[c.kind],'caught',c.x,c.y,c.w,c.h,false,null,stickToMouth);
+      spawnEffect('fx-chomp','play',c.x,c.y,c.w,c.h,false,{center:true},stickToMouth);
       var pts=c.kind==='cm'?40:c.kind==='sg'?35:25;
-      score+=pts; addPopup(c.x+c.w/2,c.y-4,'+'+pts+' CAUGHT!','#88ff88'); sfxCatch();
+      score+=pts; addPopup(player.mouthX+8,player.y-6,'+'+pts+' CHOMP!','#88ff88'); sfxBite(); sfxCatch();
     }
   }
   return false;
@@ -1157,11 +1170,12 @@ function updatePad(){
   if(!PAD)return;
   var b=state===ST.PLAY&&player.biteCD>0, r=state===ST.PLAY&&rawrCD>0;
   var big=rawrHolding&&performance.now()-rawrHoldStart>350;
-  var key=b+'|'+r+'|'+big+'|'+(r?Math.ceil(rawrCD/60):0);
+  var pr=state===ST.PLAY&&Encounters.prompting();
+  var key=b+'|'+r+'|'+big+'|'+pr+'|'+(r?Math.ceil(rawrCD/60):0);
   if(key===padShown)return; padShown=key;
   document.getElementById('bBite').classList.toggle('cool',b);
   var rb=document.getElementById('bRawr');
-  rb.classList.toggle('cool',r); rb.classList.toggle('big',big);
+  rb.classList.toggle('cool',r); rb.classList.toggle('big',big); document.getElementById('bJump').classList.toggle('pulse',pr);
   rb.firstChild.textContent=r?Math.ceil(rawrCD/60)+'s':big?'RAAAWR!':'RAWR';
 }
 
@@ -1336,7 +1350,6 @@ function step() {
     Encounters.drawFront(gameSpeed);
     Boss.update(gameSpeed); Boss.draw();
     if(th.lava)updateLavaRocks(gameSpeed,Boss.active());
-    player.x+=(Encounters.playerX()-player.x)*0.04;
     player.update(); player.draw();
     updateAndDrawEffects(gameSpeed);
     drawFg(scroll,th);

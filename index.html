@@ -85,6 +85,8 @@ body.landscape .pb small { display: none; }
 .bite { background: #e0442f; }
 .rawr { background: #e08a1a; }
 .rawr.big { background: #ffcf2a; color: #402000; }
+.pb.pulse { animation: pulse 0.5s ease-in-out infinite alternate; }
+@keyframes pulse { from { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,255,255,0.9); } to { transform: scale(1.08); box-shadow: 0 0 0 10px rgba(255,255,255,0); opacity: 1; } }
 body.portrait .pb { font-size: 22px; flex: 1; }
 body.portrait .jump { flex: 1; font-size: 26px; }
 body.landscape .pb { opacity: 0.72; font-size: 15px; width: 17vmin; height: 17vmin; min-width: 64px; min-height: 64px; }

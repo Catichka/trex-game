@@ -1,4 +1,4 @@
-const CACHE = 'trex-v21';
+const CACHE = 'trex-v22';
 // Relative paths, so the game also works from a subfolder (e.g. GitHub Pages).
 const FILES = ['./', 'index.html', 'sprites.js', 'boss.js', 'encounters.js', 'audio.js', 'music.html', 'docs/audio/theme_scores.js', 'game.js', 'manifest.json'];
 

@@ -80,70 +80,96 @@ var Encounters = (function () {
   };
   register(bugs);
 
-  // ── Set piece: Angry Mama Stego chase ──────────────────────────
-  // A big stegosaurus charges in from behind. She creeps closer; RAWR pushes
-  // her back (big RAWR more). Survive ~10 s and she trips over a pebble.
+  // ── Set piece: Angry Mama Stego stampede ────────────────────────
+  // A rumble and a flashing "JUMP!" warn that she's coming from behind, then
+  // she charges past at full speed: jump (a double jump is easiest) and she
+  // runs right underneath you. She makes PASSES charges, then trips over a
+  // pebble on her way out (+150). Touching her ends the run, like an obstacle.
+  // Big RAWR as she arrives makes her stumble and skip that charge.
   // Placeholder: the stego sprite drawn at 2x with angry eyebrows.
   // Once per level, 30-45 s in. ?chase starts it 10 s in (playtesting);
   // ?nochase turns it off.
   var CHASE_OFF = /nochase/.test(FLAGS), CHASE_FAST = !CHASE_OFF && /chase/.test(FLAGS);
   var SCALE = 2, MW = 48 * SCALE, MH = 32 * SCALE;
+  var PASSES = 2, WARN = 100, SPEED = 6, BONUS = 150;
   var mama = {
     exclusive: true, once: true,
     worlds: function () { return !CHASE_OFF; },
     firstAt: function () { return CHASE_FAST ? 600 : Math.round(rnd(30, 45) * 60); },
     gap: function () { return Infinity; },
     start: function () {
-      this.x = -MW - 30; this.state = 'warn'; this.t = 0; this.anim = new Animator('panic');
-      this.push = 0; this.stun = 0; this.hit = false;
-      addPopup(W / 2, 54, 'UH OH... MAMA STEGO!', '#ff8a5a'); sfxRumble();
+      this.anim = new Animator('panic'); this.pass = 0; this.hit = false;
+      addPopup(W / 2, 54, 'UH OH... MAMA STEGO!', '#ff8a5a');
+      this.warn();
     },
+    warn: function () {
+      this.state = 'warn'; this.t = 0; this.x = -MW - 10; this.stumble = 0;
+      spawnT = Math.min(spawnT, -60); // keep the runway clear while she passes
+    },
+    // Her body, a little inside the sprite so near-misses feel fair.
+    box: function () { return { x: this.x + 12, y: GROUND - MH + 14, w: MW - 24, h: MH - 14 }; },
     onRawr: function (big) {
-      if (this.state !== 'chase') return;
-      this.push += big ? 70 : 32; if (big) this.stun = 50;
-      addPopup(Math.max(20, this.x + MW), GROUND - MH - 6, big ? 'EEK!' : 'eep!', '#ffe066');
+      if (!big || this.state !== 'charge' || this.x + MW < player.x - 40 || this.x > player.x) return;
+      this.state = 'stumble'; this.t = 0; addPopup(player.x - 10, GROUND - MH - 8, 'EEK!', '#ffe066');
     },
     drawFront: function (spd) {
       this.t++;
-      var gapX = player.x - (this.x + MW - 18);   // >0: not touching yet
       if (this.state === 'warn') {
-        // Dust and a rumble at the left edge, then she appears.
-        if (this.t % 6 === 0) spawnEffect('fx-dust', 'play', rnd(0, 20), GROUND - 16, 24, 16, true, { center: true });
-        if (this.t % 30 === 0) sfxRumble();
-        if (this.t > 100) { this.x += 1.6; if (this.x > -40) { this.state = 'chase'; this.t = 0; addPopup(W / 2, 54, 'RAWR TO SCARE HER OFF!', '#ffe066'); } }
-      } else if (this.state === 'chase') {
-        if (this.push > 0) { var d = Math.min(this.push, 4); this.x -= d; this.push -= d; }
-        else if (this.stun > 0) this.stun--;
-        else this.x += 0.45;
-        if (this.x < -MW + 8) this.x = -MW + 8;   // always peeking in
-        if (gapX <= 0) this.hit = true;
-        if (this.t > 600) { this.state = 'trip'; this.t = 0; addPopup(W / 2, 54, 'TRIPPED! +100', '#88ff88'); score += 100; sfxCatch(); }
+        if (this.t % 6 === 0) spawnEffect('fx-dust', 'play', rnd(0, 16), GROUND - 16, 24, 16, true, { center: true });
+        if (this.t % 25 === 0) sfxRumble();
+        this.prompt = this.t % 20 < 13;
+        if (this.t >= WARN) { this.state = 'charge'; this.t = 0; this.prompt = false; }
+      } else if (this.state === 'charge') {
+        this.x += SPEED;
+        var b = this.box(), mg = 5;
+        if (hits(player.hitX + mg, player.hitY + mg, player.hitW - mg * 2, player.hitH - mg * 2, b.x, b.y, b.w, b.h)) this.hit = true;
+        if (this.x > W + 10) this.next('JUMPED HER!');
+      } else if (this.state === 'stumble') {
+        // Big RAWR: she skids to a halt behind you, then backs off.
+        this.x -= 2 + this.t * 0.1;
+        if (this.x < -MW - 10) this.next('SCARED HER OFF!');
       } else if (this.state === 'trip') {
-        this.x -= 1.5 + this.t * 0.06;
-        if (this.x < -MW - 10) { finish(this); return; }
+        this.x += 3;
+        if (this.x > W + 20) { finish(this); return; }
       }
-      // Draw her (2x stego sprite) with angry eyebrows and steam puffs.
-      var x = Math.round(this.x), y = GROUND - MH, bob = Math.floor(this.t / 6) % 2;
+      if (this.state === 'warn') { this.drawWarning(); return; }
+      this.drawMama();
+    },
+    next: function (msg) {
+      this.pass++;
+      if (this.pass < PASSES) { addPopup(W / 2, 54, msg + ' AGAIN...', '#ffe066'); this.warn(); return; }
+      // Last pass: she comes back on screen from the left only to trip over.
+      this.state = 'trip'; this.t = 0; this.x = W - MW - 40;
+      score += BONUS; sfxCatch(); addPopup(W / 2, 54, 'SHE TRIPPED! +' + BONUS, '#88ff88');
+    },
+    drawWarning: function () {
+      if (!this.prompt) return;
+      // Arrow at the left edge pointing in, plus a big JUMP prompt.
+      R(4, GROUND - 40, 10, 22, '#ff5a3a'); R(14, GROUND - 34, 4, 10, '#ff5a3a'); R(18, GROUND - 31, 3, 4, '#ff5a3a');
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 14px monospace'; ctx.fillText('!', 6, GROUND - 24);
+      ctx.textAlign = 'center'; ctx.font = 'bold 16px monospace';
+      ctx.fillStyle = '#402000'; ctx.fillText('JUMP!', W / 2 + 1, 81);
+      ctx.fillStyle = '#ffcf2a'; ctx.fillText('JUMP!', W / 2, 80);
+      ctx.font = 'bold 8px monospace'; ctx.fillStyle = '#fff'; ctx.fillText('double jump over Mama Stego', W / 2, 92);
+      ctx.textAlign = 'left';
+    },
+    drawMama: function () {
+      var x = Math.round(this.x), y = GROUND - MH, bob = Math.floor(this.t / 4) % 2;
+      var tumble = this.state === 'trip' && this.t > 20;
       ctx.save();
-      if (this.state === 'trip') {
-        ctx.translate(x + MW / 2, y + MH / 2); ctx.rotate(Math.min(1.4, this.t * 0.08)); ctx.translate(-(x + MW / 2), -(y + MH / 2));
-      }
+      if (tumble) { ctx.translate(x + MW / 2, y + MH / 2); ctx.rotate(Math.min(1.5, (this.t - 20) * 0.1)); ctx.translate(-(x + MW / 2), -(y + MH / 2)); }
       ctx.translate(x, y - bob); ctx.scale(SCALE, SCALE);
-      var self = this;
       if (!Assets.drawSprite(ctx, 'stegosaurus', this.anim.name, this.anim.t, 0, 0, 48, 32)) {
         R(0, 10, 44, 18, '#6aa04a'); R(30, 6, 14, 10, '#6aa04a');
       }
       ctx.restore();
       this.anim.update();
-      if (this.state !== 'trip') {
+      if (!tumble) {
         R(x + MW - 26, y + 14 - bob, 8, 2, '#3a1010'); R(x + MW - 20, y + 12 - bob, 4, 2, '#3a1010'); // eyebrow
-        if (this.t % 20 < 10) { R(x + MW - 34, y + 2 - bob, 4, 4, '#f0f0f0'); R(x + MW - 30, y - 2 - bob, 3, 3, '#f0f0f0'); }
-        if (this.state === 'chase' && this.stun > 0) {
-          ctx.fillStyle = '#ffe066'; ctx.font = 'bold 9px monospace'; ctx.fillText('@_@', x + MW - 34, y - 2);
-        }
-      } else if (this.t > 10) {
-        R(Math.round(player.x - 24 - this.t), GROUND - 3, 4, 3, '#8a8a8a'); // the pebble
+        if (this.t % 16 < 8) { R(x + MW - 34, y + 2 - bob, 4, 4, '#f0f0f0'); R(x + MW - 30, y - 2 - bob, 3, 3, '#f0f0f0'); }
       }
+      if (this.state === 'trip' && this.t > 12 && this.t < 30) R(x + MW + 2, GROUND - 3, 4, 3, '#8a8a8a'); // the pebble
+      if (this.state === 'stumble') { ctx.fillStyle = '#ffe066'; ctx.font = 'bold 9px monospace'; ctx.fillText('@_@', x + MW - 34, y - 2); }
     }
   };
   register(mama);
@@ -154,11 +180,11 @@ var Encounters = (function () {
     drawBack: function (spd) { each(function (e) { if (e.drawBack) e.drawBack(spd); }); },
     drawFront: function (spd) { each(function (e) { if (e.drawFront) e.drawFront(spd); }); },
     onRawr: function (big) { each(function (e) { if (e.onRawr) e.onRawr(big); }); },
-    // During the chase the T-Rex runs further right, so Mama fits on screen.
-    playerX: function () { return running.indexOf(mama) >= 0 && mama.state !== 'trip' ? 140 : 55; },
     caught: function () { return running.some(function (e) { return e.hit; }); },
+    prompting: function () { return running.some(function (e) { return e.prompt; }); },
     spawnScale: function () { return running.some(function (e) { return e.exclusive; }) ? 1.5 : 1; },
     blocksPrey: function () { return running.some(function (e) { return e.exclusive; }); },
-    chaseEnabled: !CHASE_OFF
+    chaseEnabled: !CHASE_OFF,
+    _mama: mama // for tests
   };
 })();
