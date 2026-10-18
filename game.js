@@ -75,12 +75,26 @@ var LEVEL_CFG = [
 
 // Touch devices get on-screen JUMP / BITE / RAWR buttons (#pad). In portrait
 // they sit under the game; in landscape they float over the bottom corners.
+// Phones play sideways: portrait shows a "turn your phone" card (game paused)
+// unless the player chooses to play upright anyway.
+var uprightOK=false; try{uprightOK=sessionStorage.getItem('trex-upright')==='1';}catch(e){}
+function rotatePrompt(){ return document.body.classList.contains('askrotate'); }
+// Android can lock landscape once the page is fullscreen (needs a tap); iOS ignores this.
+function goLandscape(){
+  if(!PAD||goLandscape.done)return; goLandscape.done=true;
+  try{
+    var el=document.documentElement, fs=el.requestFullscreen||el.webkitRequestFullscreen;
+    var p=fs&&fs.call(el,{navigationUI:'hide'});
+    var lock=function(){ try{ var o=screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape'); if(o&&o.catch)o.catch(function(){}); }catch(e){} };
+    if(p&&p.then)p.then(lock,function(){}); else lock();
+  }catch(e){}
+}
 var PAD=/[?&]pad\b/.test(location.search)||('ontouchstart' in window)||
         (window.matchMedia&&matchMedia('(pointer:coarse)').matches);
 function resize() {
   var pad=document.getElementById('pad'), vw=window.innerWidth, vh=window.innerHeight;
   var portrait=PAD&&vh>vw;
-  document.body.className=PAD?(portrait?'pad portrait':'pad landscape'):'';
+  document.body.className=PAD?(portrait?'pad portrait':'pad landscape')+(portrait&&!uprightOK?' askrotate':''):'';
   if(portrait)vh=Math.max(vw*H/W,vh-Math.min(vh*0.46,340)); // leave the bottom for the buttons
   const s = Math.min(vw / W, vh / H);
   canvas.style.width  = Math.floor(W * s) + 'px';
@@ -1070,6 +1084,7 @@ function isOnHallOfFameBtn(ex,ey) {
 }
 
 function doTap(ex,ey) {
+  goLandscape();
   getAC().state==='suspended'&&getAC().resume();
   if(state===ST.BOARD){
     boardFromDead=false; state=ST.TITLE; return;
@@ -1136,9 +1151,15 @@ document.addEventListener('keydown',function(e){
   if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();if(state===ST.PLAY)player.jump();else doTap();}
   if(e.code==='KeyM')Sound.toggleMute();
   if(e.code==='KeyH'&&state===ST.TITLE){boardFromDead=false;state=ST.BOARD;loadBoard();}
-  if((e.code==='KeyX'||e.code==='KeyF'||e.code==='ArrowRight')&&state===ST.PLAY){e.preventDefault();player.bite();}
-  if(e.code==='KeyR'&&state===ST.PLAY&&rawrCD===0)doRawr(false);
-  if(e.code==='KeyE'&&state===ST.PLAY&&rawrCD===0)doRawr(true);
+  // E (or X / F / Right) bites; R roars, hold R for a big RAWR (like the pad).
+  if((e.code==='KeyE'||e.code==='KeyX'||e.code==='KeyF'||e.code==='ArrowRight')&&state===ST.PLAY){e.preventDefault();if(!e.repeat)player.bite();}
+  if(e.code==='KeyR'&&state===ST.PLAY&&!e.repeat&&!rawrHolding){rawrHolding=true;rawrHoldStart=performance.now();}
+});
+document.addEventListener('keyup',function(e){
+  if(e.code!=='KeyR'||!rawrHolding)return;
+  rawrHolding=false;
+  if(state!==ST.PLAY||rawrCD>0)return;
+  doRawr(performance.now()-rawrHoldStart>350);
 });
 
 // On-screen buttons. Pointer events per button, so JUMP and BITE/RAWR can be
@@ -1170,6 +1191,9 @@ document.addEventListener('keydown',function(e){
     doRawr(performance.now()-rawrHoldStart>350);
   });
 })();
+document.getElementById('rotateAnyway').addEventListener('click',function(){
+  uprightOK=true; try{sessionStorage.setItem('trex-upright','1');}catch(e){} resize();
+});
 // Reflect cooldowns and the big-RAWR charge on the buttons (only touches the DOM on change).
 var padShown='';
 function updatePad(){
@@ -1205,7 +1229,7 @@ function drawTitle() {
   if(PAD){
     ctx.fillText('JUMP (tap twice = double jump)   BITE   RAWR',W/2,H/2-16);
   } else {
-    ctx.fillText('SPACE jump   X bite   R rawr   E big rawr',W/2,H/2-16);
+    ctx.fillText('SPACE jump   E bite   R rawr (hold R = big rawr)',W/2,H/2-16);
   }
   ctx.fillText('BITE pterodactyls (+50) - jump for the high ones!',W/2,H/2-2);
   ctx.fillText('BITE dinos (+25), stegos (+35) & cavemen (+40)',W/2,H/2+12);
@@ -1319,6 +1343,7 @@ function drawBoard() {
 var lastFrame=0, stepAcc=0;
 function loop(now) {
   requestAnimationFrame(loop);
+  if(rotatePrompt()){lastFrame=now;return;} // paused while asking to rotate
   var dt=lastFrame?now-lastFrame:STEP_MS;
   lastFrame=now;
   if(dt>250)dt=STEP_MS;
