@@ -944,7 +944,8 @@ function updateAndDrawChase(spd) {
 // ── Lava eruption projectiles (Volcano only) ─────────────────────
 // A lava bomb's landing spot glows on the ground ahead, the bomb drops onto
 // it, and the cooling rock it leaves is a solid obstacle to jump. It always
-// lands in front of the T-Rex (never behind), clear of other obstacles.
+// lands in front of the T-Rex (never behind), clear of other obstacles;
+// half land close (75-130 px ahead), half further out (200-330 px).
 var lavaRocks=[], eruptT=0;
 var BOMB_WARN=40, BOMB_G=0.42, BOMB_Y0=-34, BOMB_FALL=(function(){var y=BOMB_Y0,v=0,n=0;while(y<GROUND-30){v+=BOMB_G;y+=v;n++;}return n;})();
 // The big lava rock art at 1.6x, bottom-centre at (cx, bottom).
@@ -957,7 +958,9 @@ function drawLavaBomb(cx,bottom,anim){
 function spawnLavaBomb(spd){
   var steps=BOMB_WARN+BOMB_FALL;
   for(var tries=0;tries<4;tries++){
-    var land=200+Math.random()*130;            // screen x when it lands
+    // Screen x when it lands: about half come down just ahead of the T-Rex
+    // (a quick jump), the rest further out (Cat: some should land closer).
+    var land=Math.random()<0.5?player.x+75+Math.random()*55:200+Math.random()*130;
     var x0=land+spd*steps, clear=true;
     obstacles.forEach(function(o){ if(o.kind!=='pt'&&Math.abs(o.x+o.w/2-x0)<95)clear=false; });
     if(clear){ lavaRocks.push({x:x0,y:BOMB_Y0,vy:0,phase:'warn',timer:BOMB_WARN,anim:new Animator('idle')}); return; }
