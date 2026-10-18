@@ -663,7 +663,7 @@ var player = {
   biteW:24, get biteH(){return DINO_H-2;},
   biteCD:0,
 
-  jump:function(){if(this.jumps<this.MAX_JUMPS){this.vy=-10;this.jumps++;sfxJump();}},
+  jump:function(){if(this.jumps<this.MAX_JUMPS){this.vy=-10;this.jumps++;sfxJump();Encounters.onJump();}},
 
   rawr:function(big){
     this.rawring=true; this.rawrSize=big?2:1; this.raT=big?50:28;
