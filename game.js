@@ -1176,7 +1176,8 @@ function updatePad(){
   document.getElementById('bBite').classList.toggle('cool',b);
   var rb=document.getElementById('bRawr');
   rb.classList.toggle('cool',r); rb.classList.toggle('big',big); document.getElementById('bJump').classList.toggle('pulse',pr);
-  rb.firstChild.textContent=r?Math.ceil(rawrCD/60)+'s':big?'RAAAWR!':'RAWR';
+  rb.querySelector('span').textContent=r?Math.ceil(rawrCD/60)+'s':big?'RAAAWR!':'RAWR';
+  rb.querySelector('img').src='assets/ui/'+(big?'rawr_charged':'rawr')+'_64.png';
 }
 
 // ── Overlay screens ──────────────────────────────────────────────

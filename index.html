@@ -78,6 +78,9 @@ body.portrait #pad .right { flex: 1.2; flex-direction: column; }
   transition: transform 0.05s, filter 0.1s;
 }
 body.landscape .pb small { display: none; }
+/* ChatGPT's pixel icons (assets/ui), drawn crisp; the text label stays under them. */
+.pb img { image-rendering: pixelated; pointer-events: none; width: 48px; height: 48px; margin-bottom: 4px; }
+body.landscape .pb img { width: 32px; height: 32px; margin-bottom: 0; }
 .pb small { font-size: 10px; opacity: 0.8; font-weight: normal; margin-top: 2px; }
 .pb.down { transform: translateY(3px) scale(0.97); box-shadow: 0 1px 0 rgba(0,0,0,0.45); filter: brightness(1.25); }
 .pb.cool { filter: grayscale(0.8) brightness(0.6); }
@@ -97,10 +100,10 @@ body.landscape .jump { width: 22vmin; height: 22vmin; min-width: 80px; min-heigh
 <canvas id="c"></canvas>
 
 <div id="pad">
-  <button id="bJump" class="pb jump" tabindex="-1">JUMP</button>
+  <button id="bJump" class="pb jump" tabindex="-1"><img src="assets/ui/jump_64.png" alt=""><span>JUMP</span></button>
   <div class="right">
-    <button id="bBite" class="pb bite" tabindex="-1">BITE</button>
-    <button id="bRawr" class="pb rawr" tabindex="-1">RAWR<small>hold = BIG</small></button>
+    <button id="bBite" class="pb bite" tabindex="-1"><img src="assets/ui/bite_64.png" alt=""><span>BITE</span></button>
+    <button id="bRawr" class="pb rawr" tabindex="-1"><img src="assets/ui/rawr_64.png" alt=""><span>RAWR</span><small>hold = BIG</small></button>
   </div>
 </div>
 

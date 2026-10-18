@@ -1,0 +1,29 @@
+{
+  "pivot": null,
+  "background": "transparent",
+  "palette": {
+    "fill": "#FFF4DC",
+    "outline": "#27313E",
+    "highlight": "#FFFFFF"
+  },
+  "icons": {
+    "jump": "Upward jump arrow / T-Rex leap",
+    "bite": "Open chomping jaws",
+    "rawr": "Roaring mouth with sound rays",
+    "rawr_charged": "Charged roar with double sound rays"
+  },
+  "sizes": [
+    32,
+    64
+  ],
+  "files": [
+    "assets/ui/jump_32.png",
+    "assets/ui/jump_64.png",
+    "assets/ui/bite_32.png",
+    "assets/ui/bite_64.png",
+    "assets/ui/rawr_32.png",
+    "assets/ui/rawr_64.png",
+    "assets/ui/rawr_charged_32.png",
+    "assets/ui/rawr_charged_64.png"
+  ]
+}
