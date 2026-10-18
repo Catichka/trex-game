@@ -1515,18 +1515,60 @@ function drawMedal(cx,cy,i){
 
 function carvedText(txt,x,y,col,shadow){ ctx.fillStyle=shadow; ctx.fillText(txt,x+1,y+1); ctx.fillStyle=col; ctx.fillText(txt,x,y); }
 
+
+// Rich, deliberately decorative end-of-run UI: these accents never cover live text.
+function drawHallOrnaments(lv,st,t){
+  var x=MON_X, right=x+MON_W, bottom=MON_BOT, pulse=reduceMotion?0:Math.sin(t*0.12);
+  // Pixel-hewn boulders around the monument, with tiny bright mineral seams.
+  for(var side=0;side<2;side++){
+    var sx=side?right+2:x-10;
+    for(var i=0;i<12;i++){
+      var yy=30+i*12, offset=(i%3===0?2:0);
+      R(sx+offset,yy,7,10,st.dark);
+      R(sx+offset+1,yy+1,4,2,st.lite);
+      if(i%3===1)R(sx+3,yy+5,2,4,st.accent);
+    }
+    R(sx-2,bottom-2,13,6,st.dark);R(sx,bottom-1,9,2,st.lite);
+  }
+  // Carved fossil footprint marks near the lower pillars.
+  for(var k=0;k<2;k++){
+    var fx=k?right+7:x-8,fy=bottom-24;
+    R(fx,fy,2,5,st.accent);R(fx-3,fy-5,2,3,st.accent);
+    R(fx,fy-7,2,3,st.accent);R(fx+3,fy-5,2,3,st.accent);
+  }
+  // A tiny golden crown sits atop the stone sign.
+  var cx=W/2;
+  R(cx-8,0,16,3,'#a65a08');R(cx-7,0,14,2,'#ffe05d');
+  R(cx-6,0,2,1,'#fff5b0');R(cx+4,0,2,1,'#fff5b0');
+  // Torch flames stay OUTSIDE the rows, on the outer stone pillars.
+  for(var j=0;j<2;j++){
+    var tx=j?right+11:x-12,ty=79;
+    R(tx-4,ty+6,9,3,'#34252a');R(tx-3,ty+5,7,2,'#c17a3e');
+    R(tx-2,ty+2,5,4,'#ff681b');
+    R(tx-1,ty-3-Math.round(pulse*2),3,6,'#ffc02d');
+    R(tx,ty-1-Math.round(pulse),1,4,'#fff4a0');
+  }
+  // Distinct world-specific trim; scenery itself comes from drawBg().
+  if(lv===0){for(var g=0;g<5;g++){R(x-10+g*3,bottom-3-g%3*3,2,5,'#67c83a');R(right+g*2,bottom-4-g%3*2,2,5,'#67c83a');}}
+  else if(lv===2){R(x-10,bottom-6,13,2,'#f3c27b');R(right,bottom-6,13,2,'#f3c27b');}
+  else if(lv===3){for(var v=0;v<4;v++)R(x-10+v*3,30+v*6,2,8,'#5bbd4e');}
+  else if(lv===4){for(var c=0;c<3;c++){R(x-9+c*3,bottom-9-c*4,3,7,'#7aeaff');R(right+3+c*3,bottom-9-c*4,3,7,'#c694ff');}}
+}
+
 function drawBoard() {
   var lv=lastWorld, th=THEMES[lv], st=BOARD_STYLE[lv];
   var t=reduceMotion?0:performance.now()/STEP_MS, sc=t*0.4;
   // World scenery, dimmed so the stone stands out
   drawBg(sc,th); drawGround(sc,th);
   if(th.env==='volcano'&&!reduceMotion)drawVolcanoEruption(sc);
-  R(0,0,W,H,'rgba(0,0,0,0.35)');
+  // Keep the world scenery colourful: darken only behind the score rows.
+  R(0,0,W,H,'rgba(0,0,0,0.10)');
   drawBoardFx(st.fx,t);
 
   // Monument: capstone, carved body, plinth
   var x0=MON_X, x1=MON_X+MON_W, i;
   R(x0-10,MON_BOT,MON_W+20,6,st.dark); R(x0-10,MON_BOT,MON_W+20,1,st.lite);
+  R(x0-4,MON_TOP+24,MON_W+8,MON_BOT-MON_TOP-20,st.dark);
   R(x0,MON_TOP+28,MON_W,MON_BOT-MON_TOP-28,st.stone);
   ctx.fillStyle=st.dark;
   for(var by=MON_TOP+40,row=0;by<MON_BOT;by+=12,row++){
@@ -1534,11 +1576,14 @@ function drawBoard() {
     for(var bx=x0+(row%2?14:28);bx<x1;bx+=28)ctx.fillRect(bx,by-11,1,11);
   }
   R(x0,MON_TOP+28,2,MON_BOT-MON_TOP-28,st.lite); R(x1-2,MON_TOP+28,2,MON_BOT-MON_TOP-28,st.dark);
+  R(x0-9,MON_TOP,MON_W+18,30,st.dark);
   R(x0-6,MON_TOP,MON_W+12,30,st.stone); R(x0-6,MON_TOP,MON_W+12,2,st.lite); R(x0-6,MON_TOP+28,MON_W+12,2,st.dark);
+  // Hand-carved stone edging, world-coloured seams and ornamental flames.
+  drawHallOrnaments(lv,st,t);
   drawMonumentDecor(lv,st,t);
 
   ctx.textAlign='center';
-  ctx.font='bold 14px monospace'; carvedText('HALL OF FAME',W/2,MON_TOP+16,'#ffd84a','#2a1a00');
+  ctx.font='bold 14px monospace'; carvedText('HALL OF FAME',W/2,MON_TOP+16,'#ffdb60','#4d2100');
   ctx.font='bold 7px monospace'; carvedText('TOP 10 ALL DEVICES',W/2,MON_TOP+26,'#fff4d8','rgba(0,0,0,0.6)');
 
   if (!boardReady || boardError || topScores.length===0) {
@@ -1553,7 +1598,9 @@ function drawBoard() {
       var y=MON_ROWS+i*ROW_STEP;
       var isMe=boardFromDead&&!meShown&&s.score===lastScore&&s.name===playerName;
       if(isMe)meShown=true;
-      R(x0+6,y,MON_W-12,12,isMe?'rgba(40,90,20,0.85)':'rgba(10,8,6,0.84)');
+      R(x0+6,y,MON_W-12,12,isMe?'#145d21':i===0?'#654017':i===1?'#303244':i===2?'#5b2b23':'#191821');
+      if(i<3)R(x0+6,y,MON_W-12,1,['#ffd04a','#bfcde5','#e99b5a'][i]);
+      if(isMe)R(x0+6,y,2,12,'#9bff71');
       R(x0+6,y+11,MON_W-12,1,isMe?'#88ff88':'rgba(255,255,255,0.12)');
       if(i<3)drawMedal(x0+17,y+6,i);
       ctx.font='bold 9px monospace';
