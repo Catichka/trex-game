@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>T-Rex Jukebox</title>
+<style>
+  :root { --bg: #15121f; --panel: #221d33; --text: #f2ecff; --muted: #a99cc8; --ok: #7be38b; --draft: #ffc857; --accent: #c8a0ff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.4 system-ui, sans-serif; padding: 16px; }
+  main { max-width: 560px; margin: 0 auto; }
+  h1 { font: bold 22px monospace; margin: 8px 0 4px; }
+  p { color: var(--muted); margin: 0 0 16px; font-size: 14px; }
+  .theme { display: flex; align-items: center; gap: 12px; background: var(--panel); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+  .theme.on { outline: 2px solid var(--accent); }
+  button { font: bold 15px monospace; background: var(--accent); color: #15121f; border: 0; border-radius: 8px; padding: 10px 14px; min-width: 64px; cursor: pointer; }
+  .info { flex: 1; min-width: 0; }
+  .name { font-weight: 600; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .tag { font: bold 11px monospace; padding: 2px 6px; border-radius: 4px; margin-left: 6px; vertical-align: 2px; color: #15121f; }
+  .tag.ok { background: var(--ok); } .tag.draft { background: var(--draft); }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>🦖 T-Rex Jukebox</h1>
+  <p>Every theme, played by the same engine the game uses. Grasslands is approved; the others are drafts for listening and feedback. <a href="index.html">Back to the game</a></p>
+  <div id="list"></div>
+</main>
+<script type="module">
+import { THEMES } from './docs/audio/theme_scores.js';
+window.THEME_SCORES = THEMES;
+</script>
+<script src="audio.js"></script>
+<script>
+  var WORLD = { grasslands: 'World 1', volcano: 'World 2', desert: 'World 3', swamp: 'World 4', caverns: 'World 5', phantomRaptor: 'Boss' };
+  function render() {
+    var list = document.getElementById('list'), th = window.THEME_SCORES;
+    if (!th) return setTimeout(render, 50);
+    list.innerHTML = '';
+    Object.keys(th).forEach(function (id) {
+      var t = th[id], ok = /^APPROVED/.test(t.status), on = Sound.current() === id;
+      var row = document.createElement('div'); row.className = 'theme' + (on ? ' on' : '');
+      var btn = document.createElement('button'); btn.textContent = on ? '■ Stop' : '▶ Play';
+      btn.onclick = function () { if (Sound.current() === id) Sound.stop(); else Sound.play(id, { sting: id === 'phantomRaptor' }); render(); };
+      var info = document.createElement('div'); info.className = 'info';
+      info.innerHTML = '<div class="name"></div><div class="meta"></div>';
+      info.firstChild.textContent = t.title;
+      var tag = document.createElement('span'); tag.className = 'tag ' + (ok ? 'ok' : 'draft'); tag.textContent = ok ? 'APPROVED' : 'DRAFT';
+      info.firstChild.appendChild(tag);
+      info.lastChild.textContent = (WORLD[id] || id) + ' · ' + t.bpm + ' BPM · ' + t.key;
+      row.appendChild(btn); row.appendChild(info); list.appendChild(row);
+    });
+  }
+  render();
+</script>
+</body>
+</html>

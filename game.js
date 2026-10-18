@@ -66,13 +66,13 @@ window.addEventListener('resize', resize);
 resize();
 
 // ── Audio ────────────────────────────────────────────────────────
-let AC = null;
-function getAC() { return AC || (AC = new (window.AudioContext || window.webkitAudioContext)()); }
+// The AudioContext and mixer live in audio.js; effects play on its SFX bus.
+function getAC() { return Sound.ctx(); }
 
 function beep(freq, type, dur, vol, delay) {
   vol = vol || 0.25; delay = delay || 0;
   const ac = getAC(), o = ac.createOscillator(), g = ac.createGain();
-  o.connect(g); g.connect(ac.destination);
+  o.connect(g); g.connect(Sound.sfx);
   o.type = type; o.frequency.value = freq;
   const t = ac.currentTime + delay;
   g.gain.setValueAtTime(vol, t);
@@ -82,7 +82,7 @@ function beep(freq, type, dur, vol, delay) {
 function freqSlide(s, e, type, dur, vol, delay) {
   vol = vol || 0.4; delay = delay || 0;
   const ac = getAC(), o = ac.createOscillator(), g = ac.createGain();
-  o.connect(g); g.connect(ac.destination);
+  o.connect(g); g.connect(Sound.sfx);
   o.type = type;
   const t = ac.currentTime + delay;
   o.frequency.setValueAtTime(s, t);
@@ -113,7 +113,13 @@ function sfxRawrBig() {
   freqSlide(220, 80, 'sawtooth', 0.3,  0.35, 0.56);
 }
 
-// Songs per level  [freq, duration, optionalHarmonyFreq]
+// Music: the multivoice engine in audio.js plays each world's theme from
+// docs/audio/theme_scores.js. ?music=v1 plays the old one-note songs below
+// instead, for comparison.
+var MUSIC_V1 = /[?&]music=v1\b/.test(location.search);
+function worldTheme(lv) { return THEMES[Math.min(lv, THEMES.length - 1)].env; }
+
+// Old songs per level  [freq, duration, optionalHarmonyFreq]
 const SONGS = [
   // L1 Grasslands – Old Time Battles inspired: G major march, martial and sprightly
   // G4=392 A4=440 B4=494 C5=523 D5=587 E5=659 G5=784 | bass: G3=196 D4=294
@@ -181,11 +187,12 @@ function musicTick() {
   } catch(e) { musicTimer = setTimeout(musicTick, 250); }
 }
 function startMusic(lv) {
+  if(!MUSIC_V1){ Sound.play(worldTheme(lv)); return; }
   musicOn=true; musicLevel=Math.min(lv,SONGS.length-1); musicIdx=0;
   var ac=getAC();
   if(ac.state==='suspended'){ ac.resume().then(musicTick); } else { musicTick(); }
 }
-function stopMusic() { musicOn=false; clearTimeout(musicTimer); }
+function stopMusic() { musicOn=false; clearTimeout(musicTimer); Sound.stop(); }
 
 // ── Draw helpers ─────────────────────────────────────────────────
 function R(x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(Math.round(x),Math.round(y),w,h); }
@@ -879,7 +886,7 @@ function checkCollisions() {
 // scares nearby pterodactyls and chaseables. Both can reveal or stun the boss.
 function doRawr(big) {
   rawrCD=big?300:90; player.rawr(big);
-  if(big)applyRawr();
+  if(big){applyRawr(); Sound.duck(0.6);}
   Boss.onRawr(big);
 }
 function applyRawr() {
@@ -904,6 +911,20 @@ function drawRawrBtn() {
   ctx.fillStyle=ready?'#ffff44':'#804000';
   ctx.fillText(ready?'RAWR!':'~'+Math.ceil(rawrCD/60)+'s',bx+24,by+15);
   ctx.textAlign='left';
+}
+
+// Music on/off (also the M key), under the level tag.
+function drawMusicBtn() {
+  var off=Sound.isMuted();
+  R(2,17,16,13,'rgba(0,0,0,0.55)');
+  ctx.fillStyle=off?'#777':'#ffff88'; ctx.font='bold 9px monospace'; ctx.textAlign='center';
+  ctx.fillText('♪',10,27); ctx.textAlign='left';
+  if(off){ctx.strokeStyle='#ff6666';ctx.beginPath();ctx.moveTo(4,28);ctx.lineTo(16,19);ctx.stroke();}
+}
+function isOnMusicBtn(ex,ey) {
+  var r=canvas.getBoundingClientRect(), s=canvas.width/r.width;
+  var cx=(ex-r.left)*s, cy=(ey-r.top)*s;
+  return cx<22&&cy>14&&cy<34;
 }
 
 function isOnRawrBtn(ex,ey) {
@@ -940,6 +961,7 @@ function drawHUD(th,timeLeft) {
   });
   ctx.globalAlpha=1; ctx.textAlign='left';
   drawRawrBtn();
+  drawMusicBtn();
 }
 
 // ── Game state ───────────────────────────────────────────────────
@@ -1000,6 +1022,7 @@ canvas.addEventListener('touchstart',function(e){
   e.preventDefault();
   var t=e.touches[0];
   if(state!==ST.PLAY){doTap(t.clientX,t.clientY);return;}
+  if(isOnMusicBtn(t.clientX,t.clientY)){Sound.toggleMute();return;}
   if(isOnRawrBtn(t.clientX,t.clientY)){
     rawrHolding=true; rawrHoldStart=performance.now();
   } else {
@@ -1017,6 +1040,7 @@ canvas.addEventListener('touchend',function(e){
 },{passive:false});
 
 canvas.addEventListener('mousedown',function(e){
+  if(state===ST.PLAY&&isOnMusicBtn(e.clientX,e.clientY)){Sound.toggleMute();return;}
   if(state===ST.PLAY&&isOnRawrBtn(e.clientX,e.clientY)){rawrHolding=true;rawrHoldStart=performance.now();}
   else doTap(e.clientX,e.clientY);
 });
@@ -1029,6 +1053,7 @@ canvas.addEventListener('mouseup',function(e){
 });
 document.addEventListener('keydown',function(e){
   if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();if(state===ST.PLAY)player.jump();else doTap();}
+  if(e.code==='KeyM')Sound.toggleMute();
   if(e.code==='KeyH'&&state===ST.TITLE){boardFromDead=false;state=ST.BOARD;loadBoard();}
   if(e.code==='KeyR'&&state===ST.PLAY&&rawrCD===0)doRawr(false);
   if(e.code==='KeyE'&&state===ST.PLAY&&rawrCD===0)doRawr(true);

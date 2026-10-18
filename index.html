@@ -68,6 +68,13 @@ canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edge
 <script>
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 </script>
+<script type="module">
+// Music scores (ChatGPT): one source of truth in docs/audio, exposed to the classic scripts.
+import { THEMES } from './docs/audio/theme_scores.js';
+window.THEME_SCORES = THEMES;
+if (window.Sound) Sound.scoresReady();
+</script>
+<script src="audio.js"></script>
 <script src="sprites.js"></script>
 <script src="boss.js"></script>
 <script src="game.js"></script>

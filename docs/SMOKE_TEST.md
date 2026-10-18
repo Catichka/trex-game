@@ -28,6 +28,14 @@ Console shortcuts for testers: `levelIdx=3` before starting jumps to Swamp; `tic
 - [ ] Game speed is the same on a 60 Hz and a 120 Hz screen (iPhone/iPad Pro, gaming monitor).
 - [ ] Switching tabs mid-level pauses the timer; returning continues from the same time.
 
+## Music
+- [ ] Grasslands theme starts with the run; each world plays its own theme after the level-complete screen.
+- [ ] Phantom Raptor (`?boss`): a low sting, then the boss theme; after the NOM a short fanfare and the world theme returns.
+- [ ] Dying, restarting quickly and switching tabs never leave two tracks playing at once.
+- [ ] Big RAWR briefly dips the music; jump, chomp and RAWR sounds are always clearly audible.
+- [ ] ♪ button (top left) or **M** mutes the music and the setting survives a reload. `?music=v1` plays the old soundtrack.
+- [ ] `music.html` lists every theme and plays/stops each one.
+
 ## Death and leaderboard
 - [ ] Hitting an obstacle shows GAME OVER, then the Hall of Fame after about a second.
 - [ ] Tapping immediately after death starts a new run and the Hall of Fame does **not** interrupt it.
