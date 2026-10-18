@@ -51,7 +51,7 @@ var LEVEL_CFG = [
   { dur:1*60*1000, speed:3.5, spawnI:105, minSpawnI:88  }, // L1 Grasslands  1 min
   { dur:90*1000,   speed:4.0, spawnI:82,  minSpawnI:65  }, // L2 Volcano      1:30
   { dur:2*60*1000, speed:4.5, spawnI:64,  minSpawnI:50  }, // L3 Desert       2 min
-  { dur:Infinity,  speed:5.0, spawnI:52,  minSpawnI:32  }, // L4 Swamp        endless
+  { dur:2*60*1000, speed:5.0, spawnI:52,  minSpawnI:32  }, // L4 Swamp        2 min
   { dur:Infinity,  speed:5.5, spawnI:46,  minSpawnI:28  }, // L5 Caverns      endless
 ];
 
@@ -937,10 +937,12 @@ function drawHUD(th,timeLeft) {
 
 // ── Game state ───────────────────────────────────────────────────
 var ST={TITLE:0,PLAY:1,LVLDONE:2,DEAD:3,BOARD:4};
+var deathCount=0;
 var state=ST.TITLE;
 var levelIdx=parseInt(localStorage.getItem('trex-lv')||'0',10);
 if(levelIdx<0||levelIdx>4)levelIdx=0;
-var scroll=0, tick=0, gameSpeed=4.0, levelStart=0;
+var scroll=0, tick=0, gameSpeed=4.0;
+var STEP_MS=1000/60; // the game advances in fixed 60 Hz steps; level time is counted in steps
 
 function resetLevel() {
   var cfg=LEVEL_CFG[levelIdx];
@@ -948,7 +950,6 @@ function resetLevel() {
   obstacles.length=0; chaseables.length=0; popups.length=0; lavaRocks.length=0; effects.length=0;
   spawnT=0; spawnI=cfg.spawnI; chaseT=0; scroll=0; tick=0; score=0; scoreTick=0; flash=0; rawrCD=0; eruptT=0;
   gameSpeed=cfg.speed;
-  levelStart=performance.now();
 }
 
 function isOnHallOfFameBtn(ex,ey) {
@@ -1022,6 +1023,7 @@ canvas.addEventListener('mouseup',function(e){
 });
 document.addEventListener('keydown',function(e){
   if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();if(state===ST.PLAY)player.jump();else doTap();}
+  if(e.code==='KeyH'&&state===ST.TITLE){boardFromDead=false;state=ST.BOARD;loadBoard();}
   if(e.code==='KeyR'&&state===ST.PLAY&&rawrCD===0){rawrCD=90;player.rawr(false);}
   if(e.code==='KeyE'&&state===ST.PLAY&&rawrCD===0){rawrCD=300;player.rawr(true);applyRawr();}
 });
@@ -1044,13 +1046,13 @@ function drawTitle() {
   ctx.fillStyle='#ccc'; ctx.font='8px monospace';
   ctx.fillText('TAP = jump   Double-tap = double jump',W/2,H/2-16);
   ctx.fillText('Jump into pterodactyls to BITE them for +50pts',W/2,H/2-2);
-  ctx.fillText('Catch small dinos (+25) & cavemen (+40)!',W/2,H/2+12);
+  ctx.fillText('Catch dinos (+25), stegos (+35) & cavemen (+40)!',W/2,H/2+12);
   ctx.fillText('Tap RAWR! button to scare enemies away',W/2,H/2+26);
   ctx.fillStyle='#88ffff'; ctx.font='bold 11px monospace'; ctx.fillText('TAP TO START',W/2,H/2+46);
   // Hall of Fame button
   R(W/2-60,H/2+56,120,18,'rgba(255,215,0,0.2)');
   ctx.strokeStyle='#ffd700'; ctx.lineWidth=1; ctx.strokeRect(W/2-60,H/2+56,120,18);
-  ctx.fillStyle='#ffd700'; ctx.font='bold 9px monospace'; ctx.fillText('🏆 HALL OF FAME',W/2,H/2+68);
+  ctx.fillStyle='#ffd700'; ctx.font='bold 9px monospace'; ctx.fillText('🏆 HALL OF FAME (H)',W/2,H/2+68);
   ctx.textAlign='left';
 }
 
@@ -1146,8 +1148,21 @@ function drawBoard() {
 }
 
 // ── Main loop ────────────────────────────────────────────────────
-function loop() {
+// Run the game in fixed 60 Hz steps whatever the display's refresh rate
+// (120 Hz screens used to play at double speed). A long gap (hidden tab,
+// stall) counts as one step, so the level timer pauses with the game.
+var lastFrame=0, stepAcc=0;
+function loop(now) {
   requestAnimationFrame(loop);
+  var dt=lastFrame?now-lastFrame:STEP_MS;
+  lastFrame=now;
+  if(dt>250)dt=STEP_MS;
+  stepAcc+=dt;
+  // Small tolerance so 60 Hz displays with timing jitter still step every frame.
+  for(var n=0;stepAcc>=STEP_MS-1&&n<4;n++){stepAcc-=STEP_MS;step();}
+  if(stepAcc>STEP_MS*4)stepAcc=0;
+}
+function step() {
   var th=THEMES[levelIdx];
 
   if(state===ST.TITLE){drawTitle();return;}
@@ -1174,20 +1189,23 @@ function loop() {
     if(Assets.debug)drawDebug();
     updateScore();
     var lvDur=LEVEL_CFG[levelIdx].dur;
-    drawHUD(th,Math.max(0,lvDur-(performance.now()-levelStart)));
+    var played=tick*STEP_MS;
+    drawHUD(th,Math.max(0,lvDur-played));
 
     // Level complete check (not endless)
-    if(levelIdx<4&&performance.now()-levelStart>=lvDur){
+    if(levelIdx<4&&played>=lvDur){
       state=ST.LVLDONE; sfxLevelUp(); stopMusic();
       if(score>hiScore){hiScore=score;localStorage.setItem('trex-hi',hiScore);}
     }
-    if(checkCollisions()||(th.lava&&checkLavaCollision())){
+    if(state===ST.PLAY&&(checkCollisions()||(th.lava&&checkLavaCollision()))){
       sfxDie(); stopMusic();
       if(score>hiScore){hiScore=score;localStorage.setItem('trex-hi',hiScore);}
       lastScore=score;
       levelIdx=0; localStorage.setItem('trex-lv',0);
       // Submit score then show board
-      function goToBoard(){ boardFromDead=true; state=ST.BOARD; loadBoard(); }
+      // Only if the player is still on the game-over screen (a quick tap restarts the run).
+      var run=++deathCount;
+      function goToBoard(){ if(state!==ST.DEAD||run!==deathCount)return; boardFromDead=true; state=ST.BOARD; loadBoard(); }
       if(!playerName){
         state=ST.DEAD;
         askName(function(){ submitScore(playerName,lastScore); goToBoard(); });
