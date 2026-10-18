@@ -119,7 +119,7 @@ var Boss = (function () {
     score += SCORE; addPopup(b.x + W_ / 2, b.y - 6, '+' + SCORE + ' NOM!', '#ffee44'); sfxBite(); sfxCatch();
     set('defeat');
     // Victory flourish, then the world's music comes back.
-    if (!MUSIC_V1) { Sound.fanfare(); Sound.play(worldTheme(levelIdx), { fade: 0.3, delay: 0.8 }); }
+    if (!MUSIC_V1) { Sound.fanfare(); playWorldMusic(levelIdx, { fade: 0.3, delay: 0.8 }); }
   }
 
   function drawRaptor(x, y, f, body, dark) {
