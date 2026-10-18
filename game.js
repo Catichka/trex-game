@@ -1536,10 +1536,12 @@ function drawHallOrnaments(lv,st,t){
     R(fx,fy,2,5,st.accent);R(fx-3,fy-5,2,3,st.accent);
     R(fx,fy-7,2,3,st.accent);R(fx+3,fy-5,2,3,st.accent);
   }
-  // A tiny golden crown sits atop the stone sign.
-  var cx=W/2;
-  R(cx-8,0,16,3,'#a65a08');R(cx-7,0,14,2,'#ffe05d');
-  R(cx-6,0,2,1,'#fff5b0');R(cx+4,0,2,1,'#fff5b0');
+  // Golden crowns flank the title (the screen edge would clip one above it).
+  [W/2-70,W/2+58].forEach(function(cx){
+    R(cx,MON_TOP+12,12,4,'#a65a08'); R(cx+1,MON_TOP+12,10,3,'#ffe05d');
+    R(cx,MON_TOP+6,2,6,'#ffe05d'); R(cx+5,MON_TOP+4,2,8,'#ffe05d'); R(cx+10,MON_TOP+6,2,6,'#ffe05d');
+    R(cx+5,MON_TOP+13,2,1,'#ff4a4a'); R(cx+1,MON_TOP+13,1,1,'#fff5b0');
+  });
   // Torch flames stay OUTSIDE the rows, on the outer stone pillars.
   for(var j=0;j<2;j++){
     var tx=j?right+11:x-12,ty=79;
