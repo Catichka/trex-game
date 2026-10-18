@@ -1185,8 +1185,15 @@ if(levelIdx<0||levelIdx>4)levelIdx=0;
 var scroll=0, tick=0, gameSpeed=4.0, bossTicks=0; // level timer is frozen during the boss
 var STEP_MS=1000/60; // the game advances in fixed 60 Hz steps; level time is counted in steps
 
+// Level end: the T-Rex lets out a big RAWR and runs off the right of the
+// screen (counts up from 1 while it happens), then the level-done panel.
+var exiting=0, EXIT_RAWR=45;
+// Death always ends on the high-score board; a tap on the game-over screen
+// only hurries it along (see the death handling in step()).
+var boardShownAt=0;
 function resetLevel() {
   var cfg=LEVEL_CFG[levelIdx];
+  exiting=0;
   player.reset();
   obstacles.length=0; chaseables.length=0; popups.length=0; lavaRocks.length=0; effects.length=0;
   Boss.reset(); Encounters.reset(); bossTicks=0;
@@ -1220,7 +1227,9 @@ function doTap(ex,ey) {
   goLandscape();
   getAC().state==='suspended'&&getAC().resume();
   if(state===ST.BOARD){
-    boardFromDead=false; state=ST.TITLE; return;
+    if(performance.now()-boardShownAt<1500)return; // a mashed JUMP from the run doesn't skip it
+    if(boardFromDead){ boardFromDead=false; state=ST.PLAY; resetLevel(); startMusic(levelIdx); return; }
+    state=ST.TITLE; return;
   }
   if((state===ST.TITLE||state===ST.DEAD)&&ex!==undefined&&isOnMusicTestBtn(ex,ey)){ toggleMusicTest(); return; }
   if(state===ST.TITLE){
@@ -1231,7 +1240,7 @@ function doTap(ex,ey) {
     if(!playerName){ askName(startGame); } else { startGame(); }
     return;
   }
-  if(state===ST.DEAD){state=ST.PLAY;resetLevel();startMusic(levelIdx);return;}
+  if(state===ST.DEAD)return; // the high scores always follow, see goToBoard
   if(state===ST.LVLDONE){
     levelIdx=Math.min(levelIdx+1,4);
     localStorage.setItem('trex-lv',levelIdx);
@@ -1399,7 +1408,7 @@ function drawDead() {
   var isHi=score>=hiScore&&score>0;
   ctx.fillText('Score: '+score+(isHi?' ★ NEW BEST!':''),W/2,H/2-4);
   ctx.fillStyle='#aaa'; ctx.font='8px monospace'; ctx.fillText('Loading leaderboard...',W/2,H/2+10);
-  ctx.fillStyle='#88ff88'; ctx.font='bold 10px monospace'; ctx.fillText('TAP TO RETRY',W/2,H/2+28);
+  ctx.fillStyle='#88ff88'; ctx.font='bold 10px monospace'; ctx.fillText('HIGH SCORES NEXT...',W/2,H/2+28);
   ctx.textAlign='left';
   drawMusicTestBtn();
 }
@@ -1503,9 +1512,9 @@ function step() {
     clouds.forEach(function(c){c.x-=gameSpeed*0.12;if(c.x<-(c.w+20))c.x=W+20;});
 
     var lcfg=LEVEL_CFG[levelIdx];
-    Boss.maybeStart(tick);
+    if(!exiting)Boss.maybeStart(tick);
     if(Boss.active())bossTicks++;
-    else{ // the boss encounter replaces random obstacles and prey
+    else if(!exiting){ // the boss encounter replaces random obstacles and prey
       Encounters.tick(tick);
       spawnT++;if(spawnT>=spawnNext){spawnT=0;if(levelIdx>=3)spawnI=Math.max(lcfg.minSpawnI,spawnI-1);spawnObs(th);spawnNext=nextSpawnGap();}
       if(!Encounters.blocksPrey()){chaseT++;if(chaseT>=chaseI){chaseT=0;spawnChase();}}
@@ -1518,7 +1527,14 @@ function step() {
     updateAndDrawChase(gameSpeed);
     Encounters.drawFront(gameSpeed);
     Boss.update(gameSpeed); Boss.draw();
-    if(th.lava)updateLavaRocks(gameSpeed,Boss.active());
+    if(th.lava)updateLavaRocks(gameSpeed,Boss.active()||exiting>0);
+    if(exiting){ // RAWR, then sprint off to the right
+      if(++exiting>EXIT_RAWR)player.x+=Math.min(9,(exiting-EXIT_RAWR)*0.3);
+      if(player.x>W+10){
+        state=ST.LVLDONE; sfxLevelUp(); stopMusic();
+        if(score>hiScore){hiScore=score;localStorage.setItem('trex-hi',hiScore);}
+      }
+    }
     player.update(); player.draw();
     updateAndDrawEffects(gameSpeed);
     drawFg(scroll,th);
@@ -1530,12 +1546,12 @@ function step() {
     if(Boss.active()){R(W/2-52,17,104,11,'rgba(0,0,0,0.55)');ctx.textAlign='center';ctx.font='bold 8px monospace';ctx.fillStyle='#d8b8ff';ctx.fillText('BOSS: PHANTOM RAPTOR',W/2,25);ctx.textAlign='left';}
 
     // Level complete check (not endless)
-    if(levelIdx<4&&played>=lvDur&&!Boss.active()&&!Encounters.blocksPrey()){ // let a chase finish first
-      state=ST.LVLDONE; sfxLevelUp(); stopMusic();
-      if(score>hiScore){hiScore=score;localStorage.setItem('trex-hi',hiScore);}
+    if(levelIdx<4&&played>=lvDur&&!exiting&&!Boss.active()&&!Encounters.blocksPrey()){ // let a chase finish first
+      exiting=1; player.rawr(true); applyRawr();
+      addPopup(player.x+DINO_W/2,player.y-10,'RAWR!','#ffcf2a');
     }
     Boss.checkNom();
-    if(state===ST.PLAY&&(checkCollisions()||Encounters.caught()||(th.lava&&checkLavaCollision()))){
+    if(state===ST.PLAY&&!exiting&&(checkCollisions()||Encounters.caught()||(th.lava&&checkLavaCollision()))){
       sfxDie(); stopMusic();
       if(score>hiScore){hiScore=score;localStorage.setItem('trex-hi',hiScore);}
       lastScore=score;
@@ -1543,16 +1559,16 @@ function step() {
       // Submit score then show board
       // Only if the player is still on the game-over screen (a quick tap restarts the run).
       var run=++deathCount;
-      function goToBoard(){ if(state!==ST.DEAD||run!==deathCount)return; boardFromDead=true; state=ST.BOARD; loadBoard(); }
+      function goToBoard(){ if(state!==ST.DEAD||run!==deathCount)return; boardFromDead=true; state=ST.BOARD; boardShownAt=performance.now(); loadBoard(); }
+      state=ST.DEAD;
       if(!playerName){
-        state=ST.DEAD;
         askName(function(){ submitScore(playerName,lastScore,goToBoard); });
       } else {
-        state=ST.DEAD;
-        // Board after at least 1.2 s on the game-over screen and once the score is saved.
-        var waits=2, next=function(){ if(--waits===0)goToBoard(); };
-        submitScore(playerName,lastScore,next);
-        setTimeout(next, 1200);
+        // Board after 1.2 s on the game-over screen and once the score is saved,
+        // so it shows on the board. Taps don't skip it: kids mash JUMP when they die.
+        var saved=false, ready=false, go=function(){ if(saved&&ready)goToBoard(); };
+        submitScore(playerName,lastScore,function(){ saved=true; go(); });
+        setTimeout(function(){ ready=true; go(); }, 1200);
         setTimeout(goToBoard, 4000); // don't wait on a slow server forever
       }
     }
