@@ -2,12 +2,12 @@
   "name": "cactus-small",
   "image": "cactus-small.png",
   "frame_size": [
-    12,
-    21
+    15,
+    30
   ],
   "pivot": [
-    6,
-    20
+    7,
+    29
   ],
   "animations": {
     "idle": {
@@ -17,8 +17,8 @@
         {
           "x": 0,
           "y": 0,
-          "w": 12,
-          "h": 21
+          "w": 15,
+          "h": 30
         }
       ]
     }

@@ -2,12 +2,12 @@
   "name": "cactus-large",
   "image": "cactus-large.png",
   "frame_size": [
-    18,
-    27
+    21,
+    39
   ],
   "pivot": [
-    9,
-    26
+    10,
+    38
   ],
   "animations": {
     "idle": {
@@ -17,8 +17,8 @@
         {
           "x": 0,
           "y": 0,
-          "w": 18,
-          "h": 27
+          "w": 21,
+          "h": 39
         }
       ]
     }

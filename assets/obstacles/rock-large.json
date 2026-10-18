@@ -2,12 +2,12 @@
   "name": "rock-large",
   "image": "rock-large.png",
   "frame_size": [
-    21,
-    15
+    27,
+    24
   ],
   "pivot": [
-    10,
-    14
+    13,
+    23
   ],
   "animations": {
     "idle": {
@@ -17,8 +17,8 @@
         {
           "x": 0,
           "y": 0,
-          "w": 21,
-          "h": 15
+          "w": 27,
+          "h": 24
         }
       ]
     }
