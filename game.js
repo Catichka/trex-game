@@ -566,7 +566,9 @@ var THEMES = [
   { name:'VOLCANO', env:'volcano', num:'2', lava:true,
     skyT:'#200800',skyB:'#600808',hillB:'#2a0808',hillF:'#400808',
     gT:'#201008',gnd:'#180808',gTex:'#ff4400',
-    obs:['lS','lL','fg','pt','rS','fg','pt'], cloud:'#402010',
+    obs:['lL','fg','pt','lB','lS','fg','pt','lL','lB'], cloud:'#402010',
+    // Ground set pieces (kind, gap px, kind, ...) mixed in for variety.
+    combos:[['lS',6,'lL'],['lL',6,'lS'],['lS',5,'lL',5,'lS'],['lL',150,'fg'],['lB',140,'lL'],['fg',8,'lS'],['lS',4,'lB']],
     drawExtra: function(sc){ drawVolcanoExtra(sc); }
   },
   { name:'DESERT', env:'desert', num:'3',
@@ -659,6 +661,7 @@ function drawBg(sc,th) {
   if(Assets.hasEnvironment(th.env)){
     R(0,0,W,H,th.skyB);
     Assets.drawEnvironment(ctx,th.env,'back',sc,tick,W);
+    if(th.env==='volcano'&&state===ST.PLAY)drawVolcanoEruption(sc);
     return;
   }
   R(0,0,W,GROUND,th.skyT); R(0,GROUND*0.5,W,GROUND*0.5,th.skyB);
@@ -782,6 +785,7 @@ var OBJ = {
   st:{w:PIX*6,h:PIX*7},  mu:{w:PIX*6,h:PIX*7}, fl:{w:PIX*8,h:PIX*7},
   iS:{w:PIX*5,h:PIX*5},  iT:{w:PIX*5,h:PIX*8}, sb:{w:PIX*6,h:PIX*6},
   lS:{w:PIX*5,h:PIX*5},  lL:{w:PIX*7,h:PIX*7}, fg:{w:PIX*6,h:PIX*8},
+  lB:{w:32,h:30}, // landed lava bomb: the large lava rock drawn 1.6x
   pt:{w:PIX*10,h:PIX*5},
 };
 
@@ -805,13 +809,26 @@ function updateSwoop(o){
   o.y=o.swoopFromY+(SWOOP_TOP-o.swoopFromY)*p*p; // accelerating dive
 }
 function spawnObs(th) {
+  // Don't drop an obstacle right where a lava bomb is about to land.
+  if(lavaRocks.some(function(r){return Math.abs(r.x-(W+30))<110;})){spawnT=spawnNext-15;return;}
   var kind=th.obs[Math.floor(Math.random()*th.obs.length)];
   var sz=OBJ[kind]||OBJ.cS;
   var oy=GROUND-sz.h;
   if(kind==='pt'){var numHts=Math.min(levelIdx+1,3); oy=PTERO_TOPS[Math.floor(Math.random()*numHts)];}
+  // Some worlds mix in set pieces of several ground obstacles.
+  if(kind!=='pt'&&th.combos&&Math.random()<0.4){
+    var cb=th.combos[Math.floor(Math.random()*th.combos.length)], cx=W+20;
+    for(var ci=0;ci<cb.length;ci+=2){
+      var ck=cb[ci], cs=OBJ[ck];
+      obstacles.push({kind:ck,x:cx,y:GROUND-cs.h,w:cs.w,h:cs.h,bitable:false,wT:0,wF:0,flee:false,anim:new Animator('idle')});
+      cx+=cs.w+(cb[ci+1]||0);
+    }
+    spawnT=Math.min(spawnT,0)-Math.round((cx-W-20)/Math.max(gameSpeed,1)); // room after a long set piece
+    return;
+  }
   obstacles.push({kind:kind,x:W+20,y:oy,w:sz.w,h:sz.h,bitable:kind==='pt',wT:0,wF:0,flee:false,glide:false,swoop:kind==='pt'&&Math.random()<SWOOP_CHANCE[levelIdx],gT:60+Math.floor(Math.random()*90),anim:new Animator(kind==='pt'?'fly':'idle')});
   // Occasional paired ground obstacle
-  if((kind==='cS'||kind==='st'||kind==='lS')&&Math.random()<0.28){
+  if(!th.combos&&(kind==='cS'||kind==='st'||kind==='lS')&&Math.random()<0.28){
     var k2=th.obs.filter(function(t){return t!=='pt';})[0]||kind;
     var s2=OBJ[k2]||sz;
     obstacles.push({kind:k2,x:W+20+sz.w+PIX*5,y:GROUND-s2.h,w:s2.w,h:s2.h,bitable:false,wT:0,wF:0,flee:false,anim:new Animator('idle')});
@@ -856,7 +873,12 @@ function updateAndDrawObs(spd) {
       if(--o.gT<=0){o.glide=!o.glide&&Math.random()<0.6; o.gT=o.glide?50:80+Math.floor(Math.random()*60);}
       o.anim.play(o.flee?'frightened':o.glide?'glide':'fly',o.flee);
     }
-    drawArt(OBS_SPRITE[o.kind],o.anim,o.x,o.y,o.w,o.h,function(){drawObstaclePlaceholder(o);},o.kind==='pt'?{flipX:true}:null);
+    if(o.hot>0){ // a freshly landed lava bomb glows as it cools
+      o.hot--; ctx.fillStyle='rgba(255,100,0,'+(o.hot/90*0.5)+')';
+      ctx.beginPath(); ctx.ellipse(Math.round(o.x+o.w/2),GROUND-o.h/2,o.w*0.75,o.h*0.65,0,0,Math.PI*2); ctx.fill();
+    }
+    if(o.kind==='lB')drawLavaBomb(o.x+o.w/2,GROUND,o.anim);
+    else drawArt(OBS_SPRITE[o.kind],o.anim,o.x,o.y,o.w,o.h,function(){drawObstaclePlaceholder(o);},o.kind==='pt'?{flipX:true}:null);
     o.anim.update();
   });
   obstacles=obstacles.filter(function(o){return o.x>-100&&o.y>-80;});
@@ -909,49 +931,96 @@ function updateAndDrawChase(spd) {
 }
 
 // ── Lava eruption projectiles (Volcano only) ─────────────────────
+// A lava bomb's landing spot glows on the ground ahead, the bomb drops onto
+// it, and the cooling rock it leaves is a solid obstacle to jump. It always
+// lands in front of the T-Rex (never behind), clear of other obstacles.
 var lavaRocks=[], eruptT=0;
+var BOMB_WARN=40, BOMB_G=0.42, BOMB_Y0=-34, BOMB_FALL=(function(){var y=BOMB_Y0,v=0,n=0;while(y<GROUND-30){v+=BOMB_G;y+=v;n++;}return n;})();
+// The big lava rock art at 1.6x, bottom-centre at (cx, bottom).
+function drawLavaBomb(cx,bottom,anim){
+  ctx.save(); ctx.translate(Math.round(cx),Math.round(bottom)); ctx.scale(1.6,1.6);
+  drawArt('lava-rock-large',anim,-PIX*3.5,-PIX*7,PIX*7,PIX*7,function(){drawLavaRock(-PIX*3.5,-PIX*7,true);});
+  ctx.restore();
+}
+
+function spawnLavaBomb(spd){
+  var steps=BOMB_WARN+BOMB_FALL;
+  for(var tries=0;tries<4;tries++){
+    var land=200+Math.random()*130;            // screen x when it lands
+    var x0=land+spd*steps, clear=true;
+    obstacles.forEach(function(o){ if(o.kind!=='pt'&&Math.abs(o.x+o.w/2-x0)<95)clear=false; });
+    if(clear){ lavaRocks.push({x:x0,y:BOMB_Y0,vy:0,phase:'warn',timer:BOMB_WARN,anim:new Animator('idle')}); return; }
+  }
+}
 
 function updateLavaRocks(spd,paused) {
   if(!paused)eruptT++; // no new eruptions during the boss
-  var interval=Math.max(165, 300-tick*0.08);
-  if(eruptT>=interval){
-    eruptT=0;
-    lavaRocks.push({x:160+Math.random()*240, y:-14, vy:0, phase:'warn', timer:55});
-  }
+  var interval=Math.max(240, 420-tick*0.08);
+  if(eruptT>=interval){ eruptT=0; if(!Encounters.blocksPrey())spawnLavaBomb(spd); }
   for(var i=lavaRocks.length-1;i>=0;i--){
-    var r=lavaRocks[i];
+    var r=lavaRocks[i], rx=Math.round(r.x);
     r.x-=spd;
+    // Landing glow, brightening as the bomb gets close.
+    var k=r.phase==='warn'?1-r.timer/BOMB_WARN:1, a=Math.min(1,(0.45+0.45*Math.abs(Math.sin(tick*0.25)))*(0.6+0.5*k));
+    ctx.fillStyle='rgba(255,40,0,'+a+')'; ctx.fillRect(rx-22,GROUND-4,44,7); ctx.fillRect(rx-17,GROUND-6,34,11);
+    ctx.fillStyle='rgba(255,210,60,'+a+')'; ctx.fillRect(rx-10,GROUND-3,20,5);
     if(r.phase==='warn'){
-      r.timer--;
-      if(r.timer<=0)r.phase='fall';
-      var a=0.28+0.32*Math.abs(Math.sin(tick*0.18));
-      ctx.fillStyle='rgba(255,100,0,'+a+')'; ctx.fillRect(Math.round(r.x)-13,GROUND-5,26,6);
-      ctx.fillStyle='rgba(255,230,0,'+(a*0.6)+')'; ctx.fillRect(Math.round(r.x)-6,GROUND-3,12,4);
-    } else if(r.phase==='fall'){
-      r.vy+=0.42; r.y+=r.vy;
-      var rx=Math.round(r.x), ry=Math.round(r.y);
-      ctx.fillStyle='rgba(255,90,0,0.55)'; ctx.fillRect(rx-2,ry-PIX*4,4,PIX*4);
-      ctx.fillStyle='#ff6600'; ctx.fillRect(rx-PIX,ry,PIX*2,PIX*2);
-      ctx.fillStyle='#ffcc00'; ctx.fillRect(rx-1,ry+1,3,3);
-      if(r.y>=GROUND-PIX*3){r.y=GROUND-PIX*3; r.phase='land'; r.timer=72; sfxLavaLand();}
+      if(--r.timer<=0){r.phase='fall'; sfxSwoop();}
     } else {
-      var rx=Math.round(r.x), ry=Math.round(r.y);
-      ctx.fillStyle='#cc4400'; ctx.fillRect(rx-PIX*2,ry-PIX,PIX*5,PIX*3);
-      ctx.fillStyle='#883300'; ctx.fillRect(rx-PIX,ry-PIX+2,PIX*3,PIX*2);
-      if(r.timer>40){var ga=(r.timer-40)/40*0.55; ctx.fillStyle='rgba(255,140,0,'+ga+')'; ctx.fillRect(rx-PIX*3,ry-PIX*2,PIX*6,PIX*4);}
-      r.timer--;
-      if(r.timer<=0||r.x<-25){lavaRocks.splice(i,1);}
+      r.vy+=BOMB_G; r.y+=r.vy;
+      var ry=Math.round(r.y);
+      // Flickering flame trail above the falling rock.
+      for(var f=0;f<4;f++){
+        var fw=14-f*3, fy=ry-f*11-(tick+f)%3;
+        ctx.fillStyle=f<1?'rgba(255,220,80,0.9)':f<2?'rgba(255,140,20,0.8)':'rgba(230,50,10,'+(0.6-f*0.12)+')';
+        ctx.fillRect(rx-fw/2+((tick>>1)+f)%2,fy-10,fw,10);
+      }
+      drawLavaBomb(rx,ry+30,r.anim);
+      if(r.y>=GROUND-30){
+        // Lands as a hot, solid boulder (a normal obstacle from here on).
+        var sz=OBJ.lB;
+        obstacles.push({kind:'lB',x:rx-sz.w/2,y:GROUND-sz.h,w:sz.w,h:sz.h,bitable:false,wT:0,wF:0,flee:false,hot:90,anim:new Animator('idle')});
+        sfxLavaLand();
+        for(var d=0;d<3;d++)spawnEffect('fx-dust','play',rx-16+d*16,GROUND-16,24,16,true,{center:true});
+        lavaRocks.splice(i,1);
+      }
     }
   }
 }
 
+// A bomb that falls straight onto the T-Rex counts as a hit.
 function checkLavaCollision(){
   var mg=4, px=player.hitX+mg, py=player.hitY+mg, pw=player.hitW-mg*2, ph=player.hitH-mg*2;
   for(var i=0;i<lavaRocks.length;i++){
-    var r=lavaRocks[i]; if(r.phase!=='land')continue;
-    if(hits(px,py,pw,ph, r.x-PIX*2+mg, r.y-PIX+mg, PIX*5-mg*2, PIX*3-mg*2))return true;
+    var r=lavaRocks[i]; if(r.phase!=='fall')continue;
+    if(hits(px,py,pw,ph, r.x-16+mg, r.y+mg, 32-mg*2, 30-mg*2))return true;
   }
   return false;
+}
+
+// Background eruptions: now and then the far volcano (far_hills layer,
+// crater at x=248, y=91 in the 480-wide tile) throws up lava and smoke.
+// Scenery only.
+var bgErupt={parts:[],cool:240};
+function drawVolcanoEruption(sc){
+  var cx=((248-sc*0.18)%480+480)%480, cy=91;
+  if(cx>460)cx-=480;
+  var e=bgErupt;
+  if(--e.cool<=0&&cx>40&&cx<440&&Math.random()<0.02){
+    e.cool=360+Math.floor(Math.random()*360);
+    for(var i=0;i<18;i++)e.parts.push({x:(Math.random()-0.5)*6,y:0,vx:(Math.random()-0.5)*1.6,vy:-1.6-Math.random()*1.8,life:60+Math.random()*40,c:Math.random()<0.4?'#ffd040':Math.random()<0.5?'#ff7a20':'#e83a10',smoke:false});
+    for(var j=0;j<5;j++)e.parts.push({x:(Math.random()-0.5)*8,y:-4,vx:(Math.random()-0.5)*0.3,vy:-0.35-Math.random()*0.3,life:140,r:5+j*1.5,smoke:true});
+    e.flash=30; sfxRumble();
+  }
+  if(e.flash>0){ e.flash--; ctx.fillStyle='rgba(255,140,40,'+(e.flash/30*0.6)+')'; ctx.beginPath(); ctx.arc(Math.round(cx),cy,10+(30-e.flash)*0.4,0,Math.PI*2); ctx.fill(); }
+  e.parts=e.parts.filter(function(p){
+    p.life--; p.x+=p.vx; p.y+=p.vy; if(!p.smoke)p.vy+=0.05; else p.r+=0.04;
+    var px=cx+p.x, py=cy+p.y;
+    if(p.life<=0||py>cy+22)return false;
+    if(p.smoke){ ctx.fillStyle='rgba(150,125,130,'+Math.min(0.55,p.life/140*0.7)+')'; ctx.beginPath(); ctx.arc(Math.round(px),Math.round(py),p.r,0,Math.PI*2); ctx.fill(); }
+    else { ctx.fillStyle=p.c; ctx.fillRect(Math.round(px)-1,Math.round(py)-1,p.life>30?3:2,p.life>30?3:2); }
+    return true;
+  });
 }
 
 // ── Collision ────────────────────────────────────────────────────

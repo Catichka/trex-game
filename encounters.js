@@ -92,7 +92,7 @@ var Encounters = (function () {
   // ?nochase turns it off.
   var CHASE_OFF = /nochase/.test(FLAGS), CHASE_FAST = !CHASE_OFF && /chase/.test(FLAGS);
   var SCALE = 2, MW = 48 * SCALE, MH = 32 * SCALE;
-  var PASSES = 2, READY = 50, WARN = 230, SPEED = 12, BONUS = 150;
+  var PASSES = 2, READY = 100, WARN = 280, SPEED = 12, BONUS = 150, PEEK = -MW + 14;
   var mama = {
     exclusive: true, once: true,
     worlds: function () { return !CHASE_OFF; },
@@ -109,8 +109,8 @@ var Encounters = (function () {
     },
     // Her body, a little inside the sprite so near-misses feel fair.
     box: function () { return { x: this.x + 12, y: GROUND - MH + 14, w: MW - 24, h: MH - 14 }; },
-    // A jump while "JUMP!" shows launches her. Starting just off screen at
-    // SPEED she is under you from about step 7 to 14 of the jump, while even a
+    // A jump while "JUMP!" shows launches her. From her peeking spot at SPEED
+    // she is under you from about step 5 to 12 of the jump, while even a
     // single jump keeps you well above her back (steps ~4 to ~26).
     onJump: function () { if (this.state === 'warn' && this.t >= READY) this.jumped = true; },
     onRawr: function (big) {
@@ -122,11 +122,14 @@ var Encounters = (function () {
       if (this.state === 'warn') {
         if (this.t % 6 === 0) spawnEffect('fx-dust', 'play', rnd(0, 16), GROUND - 16, 24, 16, true, { center: true });
         if (this.t % 25 === 0) sfxRumble();
+        // She edges in from the left just before JUMP!, so the prompt lines
+        // up with her arrival (Cat: it came a little too soon).
+        if (this.t > READY - 30) this.x = Math.min(PEEK, this.x + (PEEK + MW + 10) / 30);
         spawnT = Math.min(spawnT, -60);
         this.prompt = this.t >= READY && this.t % 20 < 13;
         if (this.jumped || this.t >= WARN) {
           this.state = 'charge'; this.prompt = false;
-          this.x = this.jumped ? -MW - 3 : -MW - 10; this.t = 0;
+          this.t = 0; // charges from where she's peeking
         }
       } else if (this.state === 'charge') {
         this.x += SPEED;
@@ -141,7 +144,7 @@ var Encounters = (function () {
         this.x += 3;
         if (this.x > W + 20) { finish(this); return; }
       }
-      if (this.state === 'warn') { this.drawWarning(); return; }
+      if (this.state === 'warn') { if (this.x > -MW) this.drawMama(); this.drawWarning(); return; }
       this.drawMama();
     },
     next: function (msg) {
@@ -173,7 +176,7 @@ var Encounters = (function () {
       if (tumble) { ctx.translate(x + MW / 2, y + MH / 2); ctx.rotate(Math.min(1.5, (this.t - 20) * 0.1)); ctx.translate(-(x + MW / 2), -(y + MH / 2)); }
       // ChatGPT's Mama Stego atlas (96x64, PR #23); older fallback: the stego at 2x.
       var art = Assets.hasSprite('mama-stego');
-      this.anim.play(this.state === 'charge' ? 'run' : this.state === 'stumble' ? (this.t < 18 ? 'flinch' : 'stunned') : 'trip');
+      this.anim.play(this.state === 'charge' || this.state === 'warn' ? 'run' : this.state === 'stumble' ? (this.t < 18 ? 'flinch' : 'stunned') : 'trip');
       if (art) Assets.drawSprite(ctx, 'mama-stego', this.anim.name, this.anim.t, x, y, MW, MH);
       else {
         ctx.translate(x, y - bob); ctx.scale(SCALE, SCALE);
