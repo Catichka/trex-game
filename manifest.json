@@ -2,7 +2,7 @@
   "name": "T-Rex Run!",
   "short_name": "T-Rex Run",
   "description": "A fun 8-bit T-Rex side-scrolling game with 4 worlds and endless mode!",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "orientation": "landscape",
   "background_color": "#000000",
