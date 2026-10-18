@@ -39,6 +39,9 @@ var Boss = (function () {
     for (var i = 0; i < th.obs.length; i++) if (th.obs[i] !== 'pt') return th.obs[i];
     return 'rS';
   }
+  // Where the thrown obstacle lands: at least ~0.75 s of travel from the
+  // T-Rex whatever the speed (off the right edge at very high speeds).
+  function attackX(spd) { return Math.min(W, Math.max(b.x, player.x + DINO_W + spd * 45)); }
   function obstacleAhead() {
     for (var i = 0; i < obstacles.length; i++) if (obstacles[i].x + obstacles[i].w > player.x) return true;
     return false;
@@ -55,7 +58,7 @@ var Boss = (function () {
 
   function update(spd) {
     if (!b) return;
-    b.t++; b.f++;
+    b.t++; b.f++; b.spd = spd;
     if (b.reveal > 0) b.reveal--;
     var p;
     switch (b.state) {
@@ -72,8 +75,7 @@ var Boss = (function () {
         b.x = homeX();
         if (b.t >= b.dur) {
           var k = attackKind(), sz = OBJ[k] || OBJ.rS;
-          // At least ~0.75 s of travel before it reaches the T-Rex, whatever the speed.
-          var ox = Math.min(W, Math.max(b.x, player.x + DINO_W + spd * 45));
+          var ox = attackX(spd);
           obstacles.push({ kind: k, x: ox, y: GROUND - sz.h, w: sz.w, h: sz.h, bitable: false, wT: 0, wF: 0, flee: false, anim: new Animator('idle') });
           sfxLavaLand();
           set('cloak', CLOAK_FOR);
@@ -135,7 +137,8 @@ var Boss = (function () {
   function draw() {
     prints.forEach(function (fp) {
       ctx.globalAlpha = Math.min(1, fp.life / 40);
-      R(fp.x, GROUND - 2, 4, 2, '#7fffe8'); R(fp.x + 1, GROUND - 3, 2, 1, '#7fffe8');
+      // Dark-edged violet prints: the boss's colour, unlike any ground speckle or pickup.
+      R(fp.x - 1, GROUND - 4, 9, 4, '#1a1030'); R(fp.x, GROUND - 3, 7, 2, '#e8d8ff');
     });
     ctx.globalAlpha = 1;
     if (!b) return;
@@ -149,7 +152,14 @@ var Boss = (function () {
       R(b.x + 34 * U - 5, b.y - 18, 10, 13, '#ffff44');
       ctx.fillStyle = '#c00000'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
       ctx.fillText('!', b.x + 34 * U, b.y - 7); ctx.textAlign = 'left';
-      R(b.x - 6, GROUND - 4, 10, 4, 'rgba(230,200,140,0.8)');
+      // Ground-lane warning where the obstacle will land, arrows pointing at the T-Rex.
+      var wx = Math.round(Math.min(W - 22, attackX(b.spd || 0)));
+      R(wx - 1, GROUND + 2, 22, 9, '#1a1030');
+      ctx.fillStyle = '#ffff44';
+      for (var k = 0; k < 2; k++) {
+        ctx.beginPath(); ctx.moveTo(wx + 2 + k * 10, GROUND + 6); ctx.lineTo(wx + 8 + k * 10, GROUND + 3);
+        ctx.lineTo(wx + 8 + k * 10, GROUND + 9); ctx.fill();
+      }
     }
     if (stunned) {
       ctx.fillStyle = '#ffff00';
@@ -165,7 +175,7 @@ var Boss = (function () {
     }
   }
 
-  function info() { return b && { state: b.state, x: Math.round(b.x), alpha: +b.alpha.toFixed(2) }; }
+  function info() { return b && { state: b.state, t: b.t, x: Math.round(b.x), alpha: +b.alpha.toFixed(2) }; }
 
   return { enabled: ENABLED, reset: reset, active: active, info: info, maybeStart: maybeStart,
            update: update, draw: draw, onRawr: onRawr, checkNom: checkNom };

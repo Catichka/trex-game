@@ -779,8 +779,8 @@ function updateAndDrawChase(spd) {
 // ── Lava eruption projectiles (Volcano only) ─────────────────────
 var lavaRocks=[], eruptT=0;
 
-function updateLavaRocks(spd) {
-  eruptT++;
+function updateLavaRocks(spd,paused) {
+  if(!paused)eruptT++; // no new eruptions during the boss
   var interval=Math.max(165, 300-tick*0.08);
   if(eruptT>=interval){
     eruptT=0;
@@ -1193,7 +1193,7 @@ function step() {
     updateAndDrawObs(gameSpeed);
     updateAndDrawChase(gameSpeed);
     Boss.update(gameSpeed); Boss.draw();
-    if(th.lava)updateLavaRocks(gameSpeed);
+    if(th.lava)updateLavaRocks(gameSpeed,Boss.active());
     player.update(); player.draw();
     updateAndDrawEffects(gameSpeed);
     drawFg(scroll,th);
@@ -1205,7 +1205,7 @@ function step() {
     if(Boss.active()){R(W/2-52,17,104,11,'rgba(0,0,0,0.55)');ctx.textAlign='center';ctx.font='bold 8px monospace';ctx.fillStyle='#d8b8ff';ctx.fillText('BOSS: PHANTOM RAPTOR',W/2,25);ctx.textAlign='left';}
 
     // Level complete check (not endless)
-    if(levelIdx<4&&played>=lvDur){
+    if(levelIdx<4&&played>=lvDur&&!Boss.active()){
       state=ST.LVLDONE; sfxLevelUp(); stopMusic();
       if(score>hiScore){hiScore=score;localStorage.setItem('trex-hi',hiScore);}
     }
