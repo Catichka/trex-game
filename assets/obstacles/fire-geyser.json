@@ -1,0 +1,46 @@
+{
+  "name": "fire-geyser",
+  "image": "fire-geyser.png",
+  "frame_size": [
+    18,
+    24
+  ],
+  "pivot": [
+    9,
+    23
+  ],
+  "animations": {
+    "idle": {
+      "fps": 8,
+      "loop": true,
+      "frames": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 18,
+          "h": 24
+        },
+        {
+          "x": 18,
+          "y": 0,
+          "w": 18,
+          "h": 24
+        },
+        {
+          "x": 36,
+          "y": 0,
+          "w": 18,
+          "h": 24
+        },
+        {
+          "x": 54,
+          "y": 0,
+          "w": 18,
+          "h": 24
+        }
+      ]
+    }
+  },
+  "ground_y": 152,
+  "rendering": "nearest-neighbor"
+}
