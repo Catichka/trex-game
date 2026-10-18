@@ -14,19 +14,37 @@ var boardReady = false;
 var boardFromDead = false;
 var lastScore = 0;
 
-function submitScore(name, score) {
-  fetch(SB_URL + '/rest/v1/scores', {
-    method: 'POST', headers: SB_HDR,
-    body: JSON.stringify({ name: name, score: score })
-  }).catch(function(){});
+var boardError = false;
+var LB_TIMEOUT = 6000;
+
+// fetch with a timeout, so a slow or paused server can't leave "Loading..." up forever.
+function sbFetch(path, opts) {
+  opts = opts || {};
+  var ctl = window.AbortController ? new AbortController() : null;
+  if (ctl) { opts.signal = ctl.signal; setTimeout(function(){ ctl.abort(); }, LB_TIMEOUT); }
+  opts.headers = SB_HDR;
+  return fetch(SB_URL + '/rest/v1/' + path, opts).then(function(r){
+    if (!r.ok) throw new Error('leaderboard HTTP ' + r.status);
+    return r;
+  });
+}
+
+// Scores of 0 aren't worth a row. Calls back once the server has the score
+// (or gave up), so the board loaded afterwards includes it.
+function submitScore(name, score, callback) {
+  if (score <= 0) { if (callback) callback(); return; }
+  sbFetch('scores', { method: 'POST', body: JSON.stringify({ name: name, score: Math.floor(score) }) })
+    .catch(function(e){ console.warn(e); })
+    .then(function(){ if (callback) callback(); });
 }
 
 function loadBoard(callback) {
-  boardReady = false;
-  fetch(SB_URL + '/rest/v1/scores?select=name,score&order=score.desc&limit=10', { headers: SB_HDR })
+  boardReady = false; boardError = false;
+  sbFetch('scores?select=name,score&order=score.desc&limit=10')
     .then(function(r){ return r.json(); })
-    .then(function(d){ topScores = Array.isArray(d) ? d : []; boardReady = true; if(callback)callback(); })
-    .catch(function(){ topScores = []; boardReady = true; if(callback)callback(); });
+    .then(function(d){ topScores = Array.isArray(d) ? d : []; })
+    .catch(function(e){ console.warn(e); topScores = []; boardError = true; })
+    .then(function(){ boardReady = true; if (callback) callback(); });
 }
 
 function askName(callback) {
@@ -1134,6 +1152,9 @@ function drawBoard() {
 
   if (!boardReady) {
     ctx.fillStyle='#aaa'; ctx.font='9px monospace'; ctx.fillText('Loading...',W/2,H/2);
+  } else if (boardError) {
+    ctx.fillStyle='#ff8888'; ctx.font='9px monospace'; ctx.fillText("Couldn't reach the leaderboard.",W/2,H/2-6);
+    ctx.fillStyle='#aaa'; ctx.fillText('Check your connection and try again.',W/2,H/2+8);
   } else if (topScores.length===0) {
     ctx.fillStyle='#aaa'; ctx.font='9px monospace'; ctx.fillText('No scores yet — be the first!',W/2,H/2);
   } else {
@@ -1144,7 +1165,7 @@ function drawBoard() {
       ctx.fillStyle= i===0?'#ffd700': i===1?'#c0c0c0': i===2?'#cd7f32': isMe?'#88ff88':'#dddddd';
       ctx.font=(isMe?'bold ':'')+'9px monospace';
       var medal=i<3?medals[i]:(i+1)+'.';
-      var nameStr=s.name.substring(0,10);
+      var nameStr=String(s.name||'?').substring(0,10);
       var pts=String(s.score).padStart(5,'0');
       ctx.fillText(medal+' '+nameStr+'  '+pts,W/2,y);
     });
@@ -1246,11 +1267,14 @@ function step() {
       function goToBoard(){ if(state!==ST.DEAD||run!==deathCount)return; boardFromDead=true; state=ST.BOARD; loadBoard(); }
       if(!playerName){
         state=ST.DEAD;
-        askName(function(){ submitScore(playerName,lastScore); goToBoard(); });
+        askName(function(){ submitScore(playerName,lastScore,goToBoard); });
       } else {
         state=ST.DEAD;
-        submitScore(playerName,lastScore);
-        setTimeout(goToBoard, 1200);
+        // Board after at least 1.2 s on the game-over screen and once the score is saved.
+        var waits=2, next=function(){ if(--waits===0)goToBoard(); };
+        submitScore(playerName,lastScore,next);
+        setTimeout(next, 1200);
+        setTimeout(goToBoard, 4000); // don't wait on a slow server forever
       }
     }
   }

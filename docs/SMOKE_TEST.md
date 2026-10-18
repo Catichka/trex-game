@@ -39,7 +39,9 @@ Console shortcuts for testers: `levelIdx=3` before starting jumps to Swamp; `tic
 ## Death and leaderboard
 - [ ] Hitting an obstacle shows GAME OVER, then the Hall of Fame after about a second.
 - [ ] Tapping immediately after death starts a new run and the Hall of Fame does **not** interrupt it.
-- [ ] Hall of Fame lists the top 10 and your score badge.
+- [ ] Hall of Fame lists the top 10, includes the score you just made, and shows your score badge.
+- [ ] With the network off, the Hall of Fame says it couldn't reach the leaderboard (not "No scores yet").
+- [ ] Hosted in a subfolder (GitHub Pages), the game loads and installs to the home screen.
 
 ## Mobile
 - [ ] Canvas fills the screen without blurring; RAWR button reachable with a thumb.
