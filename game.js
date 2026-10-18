@@ -286,6 +286,9 @@ Assets.defineSprite('mama-stego','assets/characters/mama-stego/mama_stego_atlas'
   animations:anims([['run',0,6,12],['stunned',1,4,8],['trip',2,5,10,false],['flinch',3,3,10,false]]),
   fallbacks:{stunned:'flinch',flinch:'run',trip:'run'}
 });
+// Volcano meteor (encounters.js), ChatGPT atlas PR #29: fall 48x48, impact 64x48,
+// crater 48x16, warning 48x12; frames and pivots come from the JSON.
+Assets.defineSprite('meteor','assets/effects/meteor/meteor_atlas',{frameWidth:48, frameHeight:48, animations:{}});
 Assets.defineSprite('stegosaurus','assets/characters/stegosaurus/stegosaurus',{
   frameWidth:48, frameHeight:32,
   animations:anims([['run',0,4,8],['panic',1,4,12],['caught',2,6,12,false]]),
