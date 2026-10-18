@@ -1,0 +1,174 @@
+{
+  "game": "The T-Rex Game",
+  "character": "Pterodactyl",
+  "version": "3.0-classic-arcade",
+  "frame_width": 32,
+  "frame_height": 32,
+  "atlas": "pterodactyl_atlas.png",
+  "atlas_width": 256,
+  "atlas_height": 160,
+  "direction": "right",
+  "animations": {
+    "fly": {
+      "fps": 10,
+      "loop": true,
+      "frames": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "x": 32,
+          "y": 0,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "x": 64,
+          "y": 0,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "x": 96,
+          "y": 0,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "x": 128,
+          "y": 0,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "x": 160,
+          "y": 0,
+          "w": 32,
+          "h": 32
+        }
+      ]
+    },
+    "glide": {
+      "fps": 5,
+      "loop": true,
+      "frames": [
+        {
+          "x": 0,
+          "y": 32,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "x": 32,
+          "y": 32,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "x": 64,
+          "y": 32,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "x": 96,
+          "y": 32,
+          "w": 32,
+          "h": 32
+        }
+      ]
+    },
+    "dive": {
+      "fps": 12,
+      "loop": false,
+      "frames": [
+        {
+          "x": 0,
+          "y": 64,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "x": 32,
+          "y": 64,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "x": 64,
+          "y": 64,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "x": 96,
+          "y": 64,
+          "w": 32,
+          "h": 32
+        }
+      ]
+    },
+    "hurt": {
+      "fps": 8,
+      "loop": false,
+      "frames": [
+        {
+          "x": 0,
+          "y": 96,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "x": 32,
+          "y": 96,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "x": 64,
+          "y": 96,
+          "w": 32,
+          "h": 32
+        }
+      ]
+    },
+    "eaten": {
+      "fps": 12,
+      "loop": false,
+      "frames": [
+        {
+          "x": 0,
+          "y": 128,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "x": 32,
+          "y": 128,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "x": 64,
+          "y": 128,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "x": 96,
+          "y": 128,
+          "w": 32,
+          "h": 32
+        }
+      ]
+    }
+  },
+  "pixel_art": {
+    "internal_resolution": 16,
+    "scaling": "nearest-neighbor",
+    "transparent": true
+  }
+}

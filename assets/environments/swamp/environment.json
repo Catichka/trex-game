@@ -1,0 +1,76 @@
+{
+  "name": "swamp",
+  "display_name": "Primeval Swamp",
+  "viewport": [
+    480,
+    200
+  ],
+  "ground_y": 152,
+  "layers": [
+    {
+      "name": "sky",
+      "image": "sky.png",
+      "scroll_factor": 0,
+      "repeat_x": false,
+      "width": 480,
+      "height": 200,
+      "offset_y": 0
+    },
+    {
+      "name": "clouds",
+      "image": "clouds.png",
+      "scroll_factor": 0.1,
+      "repeat_x": true,
+      "width": 480,
+      "height": 200,
+      "offset_y": 0
+    },
+    {
+      "name": "far_hills",
+      "image": "far_hills.png",
+      "scroll_factor": 0.18,
+      "repeat_x": true,
+      "width": 480,
+      "height": 200,
+      "offset_y": 0
+    },
+    {
+      "name": "mid",
+      "image": "mid.png",
+      "scroll_factor": 0.32,
+      "repeat_x": true,
+      "width": 480,
+      "height": 200,
+      "offset_y": 0
+    },
+    {
+      "name": "near",
+      "image": "near.png",
+      "scroll_factor": 0.55,
+      "repeat_x": true,
+      "width": 480,
+      "height": 200,
+      "offset_y": 0
+    },
+    {
+      "name": "ground",
+      "image": "ground.png",
+      "scroll_factor": 1,
+      "repeat_x": true,
+      "width": 480,
+      "height": 200,
+      "offset_y": 0
+    },
+    {
+      "name": "foreground",
+      "image": "foreground.png",
+      "scroll_factor": 1.12,
+      "repeat_x": true,
+      "width": 480,
+      "height": 200,
+      "offset_y": 0
+    }
+  ],
+  "rendering": "nearest-neighbor",
+  "version": "readability-v03"
+}

@@ -1,0 +1,28 @@
+{
+  "name": "ice-shard-tall",
+  "image": "ice-shard-tall.png",
+  "frame_size": [
+    15,
+    24
+  ],
+  "pivot": [
+    7,
+    23
+  ],
+  "animations": {
+    "idle": {
+      "fps": 1,
+      "loop": true,
+      "frames": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 15,
+          "h": 24
+        }
+      ]
+    }
+  },
+  "ground_y": 152,
+  "rendering": "nearest-neighbor"
+}

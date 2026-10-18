@@ -1,0 +1,32 @@
+{
+  "sprites": [
+    "trex",
+    "pterodactyl",
+    "caveman",
+    "stegosaurus",
+    "small-dino",
+    "rock-small",
+    "rock-large",
+    "log",
+    "cactus-small",
+    "cactus-large",
+    "lava-rock-small",
+    "lava-rock-large",
+    "fire-geyser",
+    "mushroom",
+    "fern-log",
+    "stump",
+    "ice-shard-small",
+    "ice-shard-tall",
+    "fx-dust",
+    "fx-chomp",
+    "fx-catch"
+  ],
+  "environments": [
+    "grasslands",
+    "volcano",
+    "desert",
+    "swamp",
+    "caverns"
+  ]
+}

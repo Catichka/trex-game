@@ -1,0 +1,28 @@
+{
+  "name": "cactus-large",
+  "image": "cactus-large.png",
+  "frame_size": [
+    18,
+    27
+  ],
+  "pivot": [
+    9,
+    26
+  ],
+  "animations": {
+    "idle": {
+      "fps": 1,
+      "loop": true,
+      "frames": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 18,
+          "h": 27
+        }
+      ]
+    }
+  },
+  "ground_y": 152,
+  "rendering": "nearest-neighbor"
+}
