@@ -126,6 +126,7 @@ function sfxCatch()   { beep(600,'square',0.07,0.25); beep(800,'square',0.07,0.2
 function sfxPoints()  { beep(880,'square',0.06,0.18); beep(1100,'square',0.06,0.18,0.08); }
 function sfxDie()     { [400,300,220,150].forEach(function(f,i){beep(f,'square',0.14,0.4,i*0.13);}); }
 function sfxLevelUp() { [523,659,784,1047].forEach(function(f,i){beep(f,'square',0.15,0.28,i*0.1);}); }
+function sfxRumble()  { beep(55,'sawtooth',0.18,0.35); beep(48,'square',0.16,0.25,0.06); }
 function sfxSwoop()   { freqSlide(1400,500,'square',0.22,0.12); }
 function sfxLavaLand(){ beep(90,'sawtooth',0.2,0.55); beep(140,'square',0.1,0.35,0.08); }
 
@@ -715,7 +716,15 @@ var player = {
 
 // ── Obstacles & Enemies ──────────────────────────────────────────
 var obstacles=[], chaseables=[], popups=[];
-var spawnT=0, spawnI=90, chaseT=0, chaseI=300;
+var spawnT=0, spawnI=90, spawnNext=90, chaseT=0, chaseI=300;
+// SkiFree-style scatter: obstacles come at uneven gaps around the level's
+// interval, with the odd breather, but never closer than a full jump plus
+// landing room (32 steps), so the field looks hand-placed and stays fair.
+function nextSpawnGap(){
+  var g=spawnI*(0.75+Math.random()*0.6);
+  if(Math.random()<0.12)g*=2;
+  return Math.round(Math.max(32,g*Encounters.spawnScale()));
+}
 
 var OBJ = {
   cS:{w:PIX*5,h:PIX*10}, cL:{w:PIX*7,h:PIX*13},
@@ -938,7 +947,7 @@ function checkCollisions() {
 function doRawr(big) {
   rawrCD=big?300:90; player.rawr(big);
   if(big){applyRawr(); Sound.duck(0.6);}
-  Boss.onRawr(big);
+  Boss.onRawr(big); Encounters.onRawr(big);
 }
 function applyRawr() {
   obstacles.forEach(function(o){if(o.kind==='pt'&&o.x<player.x+160)o.flee=true;});
@@ -1030,8 +1039,8 @@ function resetLevel() {
   var cfg=LEVEL_CFG[levelIdx];
   player.reset();
   obstacles.length=0; chaseables.length=0; popups.length=0; lavaRocks.length=0; effects.length=0;
-  Boss.reset(); bossTicks=0;
-  spawnT=0; spawnI=cfg.spawnI; chaseT=0; scroll=0; tick=0; score=0; scoreTick=0; flash=0; rawrCD=0; eruptT=0;
+  Boss.reset(); Encounters.reset(); bossTicks=0;
+  spawnT=0; spawnI=cfg.spawnI; spawnNext=cfg.spawnI; chaseT=0; scroll=0; tick=0; score=0; scoreTick=0; flash=0; rawrCD=0; eruptT=0;
   gameSpeed=cfg.speed;
 }
 
@@ -1314,16 +1323,20 @@ function step() {
     Boss.maybeStart(tick);
     if(Boss.active())bossTicks++;
     else{ // the boss encounter replaces random obstacles and prey
-      spawnT++;if(spawnT>=spawnI){spawnT=0;if(levelIdx>=3)spawnI=Math.max(lcfg.minSpawnI,spawnI-1);spawnObs(th);}
-      chaseT++;if(chaseT>=chaseI){chaseT=0;spawnChase();}
+      Encounters.tick(tick);
+      spawnT++;if(spawnT>=spawnNext){spawnT=0;if(levelIdx>=3)spawnI=Math.max(lcfg.minSpawnI,spawnI-1);spawnObs(th);spawnNext=nextSpawnGap();}
+      if(!Encounters.blocksPrey()){chaseT++;if(chaseT>=chaseI){chaseT=0;spawnChase();}}
     }
     if(levelIdx>=3&&tick%280===0)gameSpeed=Math.min(levelIdx===4?22:13,gameSpeed+0.35);
     if(rawrCD>0)rawrCD--;
 
+    Encounters.drawBack(gameSpeed);
     updateAndDrawObs(gameSpeed);
     updateAndDrawChase(gameSpeed);
+    Encounters.drawFront(gameSpeed);
     Boss.update(gameSpeed); Boss.draw();
     if(th.lava)updateLavaRocks(gameSpeed,Boss.active());
+    player.x+=(Encounters.playerX()-player.x)*0.04;
     player.update(); player.draw();
     updateAndDrawEffects(gameSpeed);
     drawFg(scroll,th);
@@ -1340,7 +1353,7 @@ function step() {
       if(score>hiScore){hiScore=score;localStorage.setItem('trex-hi',hiScore);}
     }
     Boss.checkNom();
-    if(state===ST.PLAY&&(checkCollisions()||(th.lava&&checkLavaCollision()))){
+    if(state===ST.PLAY&&(checkCollisions()||Encounters.caught()||(th.lava&&checkLavaCollision()))){
       sfxDie(); stopMusic();
       if(score>hiScore){hiScore=score;localStorage.setItem('trex-hi',hiScore);}
       lastScore=score;
