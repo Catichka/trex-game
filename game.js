@@ -718,8 +718,8 @@ var obstacles=[], chaseables=[], popups=[];
 var spawnT=0, spawnI=90, chaseT=0, chaseI=300;
 
 var OBJ = {
-  cS:{w:PIX*4,h:PIX*7},  cL:{w:PIX*6,h:PIX*9},
-  rS:{w:PIX*5,h:PIX*4},  rL:{w:PIX*7,h:PIX*5}, gl:{w:PIX*9,h:PIX*3},
+  cS:{w:PIX*5,h:PIX*10}, cL:{w:PIX*7,h:PIX*13},
+  rS:{w:PIX*5,h:PIX*4},  rL:{w:PIX*9,h:PIX*8}, gl:{w:PIX*9,h:PIX*3},
   st:{w:PIX*6,h:PIX*7},  mu:{w:PIX*6,h:PIX*7}, fl:{w:PIX*8,h:PIX*7},
   iS:{w:PIX*5,h:PIX*5},  iT:{w:PIX*5,h:PIX*8}, sb:{w:PIX*6,h:PIX*6},
   lS:{w:PIX*5,h:PIX*5},  lL:{w:PIX*7,h:PIX*7}, fg:{w:PIX*6,h:PIX*8},
