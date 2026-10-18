@@ -1194,6 +1194,7 @@ var boardShownAt=0;
 function resetLevel() {
   var cfg=LEVEL_CFG[levelIdx];
   exiting=0;
+  lastWorld=levelIdx; localStorage.setItem('trex-lastworld',levelIdx); // themes the Hall of Fame
   player.reset();
   obstacles.length=0; chaseables.length=0; popups.length=0; lavaRocks.length=0; effects.length=0;
   Boss.reset(); Encounters.reset(); bossTicks=0;
@@ -1424,39 +1425,151 @@ function drawStarburst(cx,cy,outerR,innerR,pts){
   ctx.closePath(); ctx.fill();
 }
 
-function drawBoard() {
-  R(0,0,W,H,'rgba(0,0,20,0.96)');
-  ctx.textAlign='center';
-  // Title
-  ctx.fillStyle='#ffd700'; ctx.font='bold 15px monospace'; ctx.fillText('🏆 HALL OF FAME 🏆',W/2,18);
-  ctx.fillStyle='#555'; ctx.font='8px monospace'; ctx.fillText('TOP 10 ALL DEVICES',W/2,30);
-  // Divider
-  ctx.fillStyle='#ffd700'; ctx.fillRect(W/2-120,34,240,1);
+// ── Hall of Fame ─────────────────────────────────────────────────
+// A carved stone monument that looks the same in every world; the scenery,
+// stone tint, decorations and ambient effects around it follow the last world
+// played. Text is drawn live on top, never baked into art.
+var lastWorld=Math.min(4,Math.max(0,parseInt(localStorage.getItem('trex-lastworld'),10)||0));
+var reduceMotion=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+var BOARD_STYLE=[
+  {stone:'#868c78',dark:'#565c4c',lite:'#a8ae96',rank:'#cdd3b8',accent:'#9bdc4a',fx:'butterfly'}, // mossy stone
+  {stone:'#3e3539',dark:'#221c1f',lite:'#5c4d52',rank:'#c0aaa4',accent:'#ff7a20',fx:'ember'},     // basalt
+  {stone:'#c49660',dark:'#8e6640',lite:'#e2bc86',rank:'#f4d8a8',accent:'#ffd27a',fx:'sand'},      // sandstone
+  {stone:'#6a7062',dark:'#454b40',lite:'#8a917c',rank:'#b8c0a4',accent:'#c8ff70',fx:'firefly'},   // weathered stone
+  {stone:'#545078',dark:'#343050',lite:'#7872a6',rank:'#b0aaf0',accent:'#8ff0ff',fx:'sparkle'}    // crystal
+];
+var boardDino=new Animator('celebrate');
+var MON_X=W/2-110, MON_W=220, MON_TOP=2, MON_ROWS=36, ROW_STEP=14.6, MON_BOT=182;
 
-  if (!boardReady) {
-    ctx.fillStyle='#aaa'; ctx.font='9px monospace'; ctx.fillText('Loading...',W/2,H/2);
-  } else if (boardError) {
-    ctx.fillStyle='#ff8888'; ctx.font='9px monospace'; ctx.fillText("Couldn't reach the leaderboard.",W/2,H/2-6);
-    ctx.fillStyle='#aaa'; ctx.fillText('Check your connection and try again.',W/2,H/2+8);
-  } else if (topScores.length===0) {
-    ctx.fillStyle='#aaa'; ctx.font='9px monospace'; ctx.fillText('No scores yet — be the first!',W/2,H/2);
-  } else {
-    var medals=['🥇','🥈','🥉'];
-    topScores.forEach(function(s,i){
-      var y=48+i*14;
-      var isMe=boardFromDead&&s.score===lastScore&&s.name===playerName;
-      ctx.fillStyle= i===0?'#ffd700': i===1?'#c0c0c0': i===2?'#cd7f32': isMe?'#88ff88':'#dddddd';
-      ctx.font=(isMe?'bold ':'')+'9px monospace';
-      var medal=i<3?medals[i]:(i+1)+'.';
-      var nameStr=String(s.name||'?').substring(0,10);
-      var pts=String(s.score).padStart(5,'0');
-      ctx.fillText(medal+' '+nameStr+'  '+pts,W/2,y);
+function drawBoardFx(fx,t){
+  for(var i=0;i<14;i++){
+    var x,y;
+    if(fx==='butterfly'){
+      x=((i*97+t*0.5)%(W+20))-10; y=30+(i*37%90)+Math.sin(t*0.05+i)*8;
+      var c=['#ffe14a','#ff8ad0','#8ad8ff'][i%3], f=Math.floor(t/6+i)%2;
+      R(x-2-f,y,2,2,c); R(x+1+f,y,2,2,c); R(x,y,1,3,'#3a2a10');
+    } else if(fx==='ember'){
+      x=(i*61%W)+Math.sin(t*0.03+i)*6; y=H-((t*0.6+i*53)%(H+10));
+      R(x,y,2,2,i%3?'#ff7a20':'#ffd040');
+    } else if(fx==='sand'){
+      x=W-((t*1.5+i*71)%(W+10)); y=110+(i*29%80)+Math.sin(t*0.04+i)*3;
+      R(x,y,3,1,'rgba(240,216,160,0.75)');
+    } else if(fx==='firefly'){
+      x=(i*83%W)+Math.sin(t*0.02+i*2)*14; y=50+(i*41%110)+Math.cos(t*0.025+i)*10;
+      ctx.globalAlpha=0.35+0.65*Math.abs(Math.sin(t*0.06+i)); R(x,y,2,2,'#e8ff70'); ctx.globalAlpha=1;
+    } else {
+      if((t+i*23)%90>24)continue;
+      x=(i*89+13)%W; y=(i*53+9)%(H-20);
+      R(x,y-2,1,5,'#c8f8ff'); R(x-2,y,5,1,'#c8f8ff');
+    }
+  }
+}
+
+// Decorations that dress the same monument for each world.
+function drawMonumentDecor(lv,st,t){
+  var L=MON_X-6, Rt=MON_X+MON_W+6, i;
+  if(lv===0){ // moss, ferns, flowers
+    for(i=0;i<9;i++)R(L+4+i*26+(i%3)*3,MON_TOP-1,10+(i%2)*6,3,i%2?'#5a9a2a':'#78b83a');
+    [MON_X-14,MON_X+MON_W+4].forEach(function(fx,k){
+      for(var j=0;j<4;j++){ctx.fillStyle=j%2?'#3e8a20':'#5aaa2a'; for(var s=0;s<7;s++)ctx.fillRect(fx+(k?s:-s)+j*3,MON_BOT-s*2-j,2,2);}
+      R(fx+(k?4:6),MON_BOT-10,3,3,'#ffd84a'); R(fx+(k?9:1),MON_BOT-6,3,3,'#ff7ac8');
     });
+  } else if(lv===1){ // glowing lava seams in the basalt
+    var glow=reduceMotion?0.8:0.55+0.45*Math.abs(Math.sin(t*0.04));
+    ctx.globalAlpha=glow;
+    [[MON_X+2,40],[MON_X+MON_W-4,70],[MON_X+3,120],[MON_X+MON_W-5,150]].forEach(function(p){
+      for(var s=0;s<8;s++)R(p[0]+((s%3)-1),p[1]+s*3,2,3,s%2?'#ff7a20':'#ffb030');
+    });
+    for(i=0;i<5;i++)R(L+10+i*48,MON_TOP+29,18,1,'#ff5a10');
+    ctx.globalAlpha=1;
+  } else if(lv===2){ // fossils and sand drifts
+    [[L+14,MON_TOP+15],[Rt-14,MON_TOP+15]].forEach(function(p){
+      ctx.strokeStyle=st.dark; ctx.lineWidth=1.5; ctx.beginPath();
+      for(var a=0;a<12;a+=0.4){var r=1+a*0.6; ctx.lineTo(p[0]+Math.cos(a)*r,p[1]+Math.sin(a)*r);} ctx.stroke(); ctx.lineWidth=1;
+    });
+    ctx.fillStyle='#e0b878';
+    [[MON_X-20,40],[MON_X+MON_W-20,40]].forEach(function(p){ctx.beginPath();ctx.moveTo(p[0],MON_BOT+6);ctx.quadraticCurveTo(p[0]+p[1]/2,MON_BOT-8,p[0]+p[1],MON_BOT+6);ctx.fill();});
+  } else if(lv===3){ // hanging vines and mist
+    for(i=0;i<6;i++){
+      var vx=i<3?L+4+i*7:Rt-6-(i-3)*7, len=18+(i*13%26);
+      for(var s=0;s<len;s+=3){var sw=reduceMotion?0:Math.round(Math.sin(t*0.03+i+s*0.2));R(vx+sw,MON_TOP+30+s,2,3,'#2e6a2a'); if(s%9===0)R(vx+sw+2,MON_TOP+31+s,3,2,'#5aa040');}
+    }
+    for(i=0;i<4;i++){var mx=((i*130+t*0.3)%(W+120))-120; R(mx,MON_BOT-6+i%2*4,120,6,'rgba(200,230,220,0.18)');}
+  } else { // crystals and stalactites
+    [[MON_X-12,'#8ff0ff'],[MON_X-4,'#c08aff'],[MON_X+MON_W+2,'#c08aff'],[MON_X+MON_W+10,'#8ff0ff']].forEach(function(c,k){
+      var h=14+(k%2)*8; ctx.fillStyle=c[1]; ctx.beginPath(); ctx.moveTo(c[0],MON_BOT+4); ctx.lineTo(c[0]+3,MON_BOT+4-h); ctx.lineTo(c[0]+6,MON_BOT+4); ctx.fill();
+      R(c[0]+2,MON_BOT+4-h+4,1,h-6,'rgba(255,255,255,0.5)');
+    });
+    ctx.fillStyle='#2a2440';
+    [20,46,74,370,400,436,462].forEach(function(sx,k){var h=10+(k*7%16);ctx.beginPath();ctx.moveTo(sx-5,0);ctx.lineTo(sx,h);ctx.lineTo(sx+5,0);ctx.fill();});
+  }
+}
+
+function drawMedal(cx,cy,i){
+  var m=[['#ffcf3a','#a87a10'],['#e2e8ee','#8a96a4'],['#e8955a','#8a4e20']][i];
+  ctx.fillStyle=m[1]; ctx.beginPath(); ctx.arc(cx,cy,6,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle=m[0]; ctx.beginPath(); ctx.arc(cx,cy,5,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle=m[1]; ctx.beginPath(); // ammonite fossil spiral
+  for(var a=0;a<9;a+=0.5){var r=0.6+a*0.42; ctx.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);} ctx.stroke();
+}
+
+function carvedText(txt,x,y,col,shadow){ ctx.fillStyle=shadow; ctx.fillText(txt,x+1,y+1); ctx.fillStyle=col; ctx.fillText(txt,x,y); }
+
+function drawBoard() {
+  var lv=lastWorld, th=THEMES[lv], st=BOARD_STYLE[lv];
+  var t=reduceMotion?0:performance.now()/STEP_MS, sc=t*0.4;
+  // World scenery, dimmed so the stone stands out
+  drawBg(sc,th); drawGround(sc,th);
+  if(th.env==='volcano'&&!reduceMotion)drawVolcanoEruption(sc);
+  R(0,0,W,H,'rgba(0,0,0,0.35)');
+  drawBoardFx(st.fx,t);
+
+  // Monument: capstone, carved body, plinth
+  var x0=MON_X, x1=MON_X+MON_W, i;
+  R(x0-10,MON_BOT,MON_W+20,6,st.dark); R(x0-10,MON_BOT,MON_W+20,1,st.lite);
+  R(x0,MON_TOP+28,MON_W,MON_BOT-MON_TOP-28,st.stone);
+  ctx.fillStyle=st.dark;
+  for(var by=MON_TOP+40,row=0;by<MON_BOT;by+=12,row++){
+    ctx.fillRect(x0,by,MON_W,1);
+    for(var bx=x0+(row%2?14:28);bx<x1;bx+=28)ctx.fillRect(bx,by-11,1,11);
+  }
+  R(x0,MON_TOP+28,2,MON_BOT-MON_TOP-28,st.lite); R(x1-2,MON_TOP+28,2,MON_BOT-MON_TOP-28,st.dark);
+  R(x0-6,MON_TOP,MON_W+12,30,st.stone); R(x0-6,MON_TOP,MON_W+12,2,st.lite); R(x0-6,MON_TOP+28,MON_W+12,2,st.dark);
+  drawMonumentDecor(lv,st,t);
+
+  ctx.textAlign='center';
+  ctx.font='bold 14px monospace'; carvedText('HALL OF FAME',W/2,MON_TOP+16,'#ffd84a','#2a1a00');
+  ctx.font='bold 7px monospace'; carvedText('TOP 10 ALL DEVICES',W/2,MON_TOP+26,'#fff4d8','rgba(0,0,0,0.6)');
+
+  if (!boardReady || boardError || topScores.length===0) {
+    R(x0+8,96,MON_W-16,32,'rgba(0,0,0,0.6)');
+    ctx.font='9px monospace';
+    if(!boardReady){ ctx.fillStyle='#ddd'; ctx.fillText('Loading...',W/2,115); }
+    else if(boardError){ ctx.fillStyle='#ff9a9a'; ctx.fillText("Couldn't reach the leaderboard.",W/2,108); ctx.fillStyle='#ddd'; ctx.fillText('Check your connection and try again.',W/2,121); }
+    else { ctx.fillStyle='#ddd'; ctx.fillText('No scores yet — be the first!',W/2,115); }
+  } else {
+    var meShown=false;
+    topScores.forEach(function(s,i){
+      var y=MON_ROWS+i*ROW_STEP;
+      var isMe=boardFromDead&&!meShown&&s.score===lastScore&&s.name===playerName;
+      if(isMe)meShown=true;
+      R(x0+6,y,MON_W-12,12,isMe?'rgba(40,90,20,0.85)':'rgba(10,8,6,0.84)');
+      R(x0+6,y+11,MON_W-12,1,isMe?'#88ff88':'rgba(255,255,255,0.12)');
+      if(i<3)drawMedal(x0+17,y+6,i);
+      ctx.font='bold 9px monospace';
+      if(i>=3){ ctx.textAlign='center'; ctx.fillStyle=st.rank; ctx.fillText(String(i+1),x0+17,y+9.5); }
+      ctx.textAlign='left';
+      ctx.fillStyle=isMe?'#88ff88':i===0?'#ffd84a':i===1?'#e2e8ee':i===2?'#f0a868':'#f2ead8';
+      ctx.fillText(String(s.name||'?').substring(0,12),x0+28,y+9.5);
+      ctx.textAlign='right';
+      ctx.fillText(String(s.score).padStart(5,'0'),x1-12,y+9.5);
+    });
+    ctx.textAlign='center';
   }
 
-  // Your-score starburst badge on the left
+  // Your-score medallion on the left
   if(boardFromDead){
-    var cx=58, cy=102;
+    var cx=58, cy=88;
     ctx.fillStyle='rgba(255,200,0,0.18)'; drawStarburst(cx,cy,54,42,18); // outer glow
     ctx.fillStyle='#aa7700';             drawStarburst(cx,cy,48,36,18); // dark gold ring
     ctx.fillStyle='#ffcc00';             drawStarburst(cx,cy,43,32,18); // bright gold
@@ -1471,14 +1584,21 @@ function drawBoard() {
     ctx.fillStyle='#ffffff'; ctx.font='bold 12px monospace';
     ctx.fillText(String(lastScore),cx,cy+8);
     if(playerName){
-      ctx.fillStyle='#88ff88'; ctx.font='6px monospace';
+      ctx.fillStyle='#88ff88'; ctx.font='bold 7px monospace';
       ctx.fillText(playerName.substring(0,9),cx,cy+19);
     }
   }
 
-  ctx.fillStyle='#333'; ctx.fillRect(W/2-120,H-34,240,1);
-  ctx.fillStyle='#88ffff'; ctx.font='bold 10px monospace';
-  ctx.fillText(boardFromDead?'TAP TO PLAY AGAIN':'TAP TO GO BACK',W/2,H-8);
+  // Cheering T-Rex beside the monument (clear of the JUMP button)
+  var hop=reduceMotion?0:Math.round(Math.abs(Math.sin(t*0.09))*-8);
+  var dx=384, dy=GROUND-DINO_H+hop;
+  drawArt('trex',boardDino,dx,dy,DINO_W,DINO_H,function(){drawDino(dx,dy,0,false,hop<0,true);});
+  boardDino.update();
+
+  ctx.font='bold 9px monospace';
+  var cta=boardFromDead?'TAP TO PLAY AGAIN':'TAP TO GO BACK', cw=ctx.measureText(cta).width+16;
+  R(W/2-cw/2,MON_BOT+7,cw,11,'rgba(0,0,0,0.7)');
+  ctx.fillStyle='#88ffff'; ctx.fillText(cta,W/2,MON_BOT+15.5);
   ctx.textAlign='left';
 }
 
