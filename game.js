@@ -22,20 +22,14 @@ function sbFetch(path, opts) {
   opts = opts || {};
   var ctl = window.AbortController ? new AbortController() : null;
   if (ctl) { opts.signal = ctl.signal; setTimeout(function(){ ctl.abort(); }, LB_TIMEOUT); }
-  opts.headers = SB_HDR;
+  var h = {}, k;
+  for (k in SB_HDR) h[k] = SB_HDR[k];
+  for (k in (opts.headers || {})) h[k] = opts.headers[k];
+  opts.headers = h;
   return fetch(SB_URL + '/rest/v1/' + path, opts).then(function(r){
     if (!r.ok) throw new Error('leaderboard HTTP ' + r.status);
     return r;
   });
-}
-
-// Scores of 0 aren't worth a row. Calls back once the server has the score
-// (or gave up), so the board loaded afterwards includes it.
-function submitScore(name, score, callback) {
-  if (score <= 0) { if (callback) callback(); return; }
-  sbFetch('scores', { method: 'POST', body: JSON.stringify({ name: name, score: Math.floor(score) }) })
-    .catch(function(e){ console.warn(e); })
-    .then(function(){ if (callback) callback(); });
 }
 
 function loadBoard(callback) {
@@ -117,6 +111,7 @@ function titleButtonAt(ex,ey){
 }
 function showTitleArt(){ return state===ST.TITLE&&titleReady; }
 function resize() {
+  if(document.body.classList.contains('typing')){ placeOver(); return; } // keyboard open: keep the layout
   var pad=document.getElementById('pad'), vw=window.innerWidth, vh=window.innerHeight;
   var portrait=PAD&&vh>vw;
   document.body.className=PAD?(portrait?'pad portrait':'pad landscape')+(portrait&&!uprightOK?' askrotate':''):'';
@@ -126,7 +121,7 @@ function resize() {
   canvas.style.height = Math.floor(H * s) + 'px';
   canvas.width = W; canvas.height = H;
   ctx.imageSmoothingEnabled = false;
-  placeTitle();
+  placeTitle(); if(overBox)placeOver();
 }
 window.addEventListener('resize', resize);
 resize();
@@ -304,6 +299,10 @@ function anims(list){ // [name,row,frames,fps,loop?]
 // frame rects and fps). Anchor pins the feet (sprite row 56 = ground line, x 35
 // between the legs, which puts the torso over the gameplay hitbox) to the
 // bottom-centre of the player's box.
+// Sitting, dazed T-Rex for OH, RAWR! (art requested: loads once listed in the manifest;
+// until then the screen uses the hurt frame with code-drawn stars).
+Assets.defineSprite('trex-dizzy','assets/characters/trex/trex_dizzy',{frameWidth:64,frameHeight:64,anchor:[35,56],
+  animations:{dizzy:{row:0,frames:4,fps:6,loop:true}}});
 Assets.defineSprite('trex','assets/characters/trex/trex_atlas',{
   frameWidth:64, frameHeight:64, anchor:[35,56],
   animations:Object.assign(anims([['idle',0,4,5],['run',1,8,12],['jump',2,6,10,false],['fall',3,4,8],['land',4,4,10,false],
@@ -1268,7 +1267,7 @@ function doTap(ex,ey) {
     else if(btn==='start'){ if(!playerName){ askName(startTitleGame); } else { startTitleGame(); } }
     return;
   }
-  if((state===ST.TITLE||state===ST.DEAD)&&ex!==undefined&&isOnMusicTestBtn(ex,ey)){ toggleMusicTest(); return; }
+  if(state===ST.TITLE&&ex!==undefined&&isOnMusicTestBtn(ex,ey)){ toggleMusicTest(); return; }
   if(state===ST.TITLE){
     if(ex!==undefined&&isOnHallOfFameBtn(ex,ey)){
       boardFromDead=false; state=ST.BOARD; loadBoard(); return;
@@ -1277,7 +1276,11 @@ function doTap(ex,ey) {
     if(!playerName){ askName(startGame); } else { startGame(); }
     return;
   }
-  if(state===ST.DEAD)return; // the high scores always follow, see goToBoard
+  if(state===ST.DEAD){
+    if(ex!==undefined){ var r=canvas.getBoundingClientRect(); overTap((ex-r.left)*W/r.width,(ey-r.top)*H/r.height); }
+    else if(over&&performance.now()-over.shownAt>1200)leaveOver('again'); // Space / Enter
+    return;
+  }
   if(state===ST.LVLDONE){
     levelIdx=Math.min(levelIdx+1,4);
     localStorage.setItem('trex-lv',levelIdx);
@@ -1328,8 +1331,10 @@ canvas.addEventListener('mouseup',function(e){
   doRawr(held>350);
 });
 document.addEventListener('keydown',function(e){
+  if(e.target&&e.target.tagName==='INPUT')return; // typing a name: no game shortcuts
   if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();if(state===ST.PLAY)player.jump();else doTap();}
-  if(e.code==='Enter'&&state===ST.TITLE&&document.getElementById('nameBox').style.display!=='flex')doTap();
+  if(e.code==='Enter'&&(state===ST.TITLE||state===ST.DEAD)&&document.getElementById('nameBox').style.display!=='flex')doTap();
+  if(e.code==='Escape'&&state===ST.DEAD&&over&&performance.now()-over.shownAt>900)leaveOver('menu');
   if(e.code==='KeyM')Sound.toggleMute();
   if(e.code==='KeyT')toggleMusicTest();
   if(e.code==='KeyH'&&state===ST.TITLE){boardFromDead=false;state=ST.BOARD;loadBoard();}
@@ -1437,18 +1442,232 @@ function drawLevelDone(th) {
   ctx.textAlign='left';
 }
 
-function drawDead() {
-  R(W/2-112,H/2-44,224,88,'rgba(40,0,0,0.85)');
-  ctx.strokeStyle='#ff4444'; ctx.lineWidth=2; ctx.strokeRect(W/2-112,H/2-44,224,88); ctx.lineWidth=1;
+// ── OH, RAWR! (game over + Hall of Fame in one screen) ───────────
+// Shown on the biome the player died in. The live top ten loads straight away;
+// a score that makes it gets a name field (prefilled with the last name saved
+// to the board) and is only saved when the player taps SAVE SCORE.
+var over=null; // per-death state, set by startOver()
+var overDraft=''; // a name typed for a score that was skipped, offered again next time
+var OVER_BTN={ again:[238,163,352,195], menu:[358,163,472,195] }; // canvas px [l,t,r,b]
+var OVER_FORM=[115,132,223,157]; // where the name field (14 px) + SAVE SCORE (10 px) sit
+var overBox=document.getElementById('over'), overName=document.getElementById('overName'), overSave=document.getElementById('overSave');
+placeOver();
+function lastBoardName(){ try{ return localStorage.getItem('trex-lb-name')||''; }catch(e){ return ''; } }
+function fmtScore(n){ return String(Math.floor(n)).replace(/\B(?=(\d{3})+(?!\d))/g,','); }
+
+// A random id for this run's score. The server keeps one row per id, so a retry
+// after a lost reply can't add the score twice.
+function runId(){
+  if(window.crypto&&crypto.randomUUID)return crypto.randomUUID();
+  var b=new Uint8Array(16); crypto.getRandomValues(b); b[6]=b[6]&15|64; b[8]=b[8]&63|128;
+  var h=[].map.call(b,function(v){ return (v+256).toString(16).slice(1); }).join('');
+  return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+}
+function startOver(){
+  over={ shownAt:performance.now(), qualifies:null, saving:false, saved:false, err:false, savedName:'',
+          runId:runId(), warn:null };
+  overName.value=overDraft||lastBoardName()||playerName||'';
+  overName.readOnly=false;
+  overSave.disabled=false; overSave.textContent='SAVE SCORE';
+  loadOverBoard();
+}
+function loadOverBoard(){
+  var o=over;
+  loadBoard(function(){
+    if(o!==over||boardError)return;
+    // Makes the top ten if there are free places or it beats the 10th score.
+    if(o.qualifies===null)o.qualifies=lastScore>0&&(topScores.length<10||lastScore>topScores[topScores.length-1].score);
+  });
+}
+function overFormShown(){ return state===ST.DEAD&&over&&over.qualifies&&!over.saved; }
+function placeOver(){
+  var r=canvas.getBoundingClientRect(), s=r.width/W, f=OVER_FORM;
+  overBox.style.left=(r.left+f[0]*s)+'px'; overBox.style.top=(r.top+f[1]*s)+'px';
+  overBox.style.width=((f[2]-f[0])*s)+'px'; overBox.style.height=((f[3]-f[1])*s)+'px';
+  overName.style.height=Math.round(14*s)+'px'; overSave.style.height=Math.round(10*s)+'px';
+  overSave.style.fontSize=Math.max(10,Math.round(6.5*s))+'px';
+}
+function saveOverScore(){
+  var o=over;
+  if(!o||!o.qualifies||o.saving||o.saved)return; // one save at a time, one row per run
+  var n=(overName.value.trim()||'Dino Kid').substring(0,12); // same rules as the start prompt
+  var sc=Math.floor(lastScore);
+  // After the first attempt the name is locked: that row may already be stored,
+  // and a retry must send exactly the same row.
+  overName.value=n; overName.readOnly=true; o.saving=true; o.err=false;
+  overSave.disabled=true; overSave.textContent='SAVING...';
+  function done(){
+    if(o!==over)return;
+    o.saving=false; o.saved=true; o.savedName=n; o.warn=null; overDraft='';
+    playerName=n;
+    try{ localStorage.setItem('trex-lb-name',n); localStorage.setItem('trex-name',n); }catch(e){}
+    overName.blur();
+    loadOverBoard();
+  }
+  function failed(e){
+    console.warn(e);
+    if(o!==over)return;
+    o.saving=false; o.err=true; // keep the typed name; the button becomes a retry
+    overSave.disabled=false; overSave.textContent='TRY AGAIN';
+  }
+  // A retry re-sends the same run id, so if the first save reached the server
+  // and only its reply was lost, the server ignores the copy.
+  sbFetch('scores?on_conflict=client_id',{ method:'POST',
+      headers:{ 'Prefer':'resolution=ignore-duplicates,return=minimal' },
+      body:JSON.stringify({ name:n, score:sc, client_id:o.runId }) }).then(done,failed);
+}
+overSave.addEventListener('click',saveOverScore);
+// On touch screens the keyboard covers the bottom of a sideways phone, so while
+// typing the field floats at the top (with the score), and the canvas keeps its size.
+overName.addEventListener('focus',function(){ if(PAD){ document.body.classList.add('typing'); document.getElementById('overScore').textContent='SAVE '+fmtScore(lastScore)+' AS:'; } });
+overName.addEventListener('blur',function(){ document.body.classList.remove('typing'); setTimeout(resize,50); });
+overName.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); saveOverScore(); } });
+
+var OVER_WARN_MS=4000;
+function leaveOver(to){
+  var o=over;
+  if(o&&o.qualifies&&!o.saved){
+    var now=performance.now();
+    if(!o.warn||o.warn.to!==to||now>o.warn.until){ o.warn={to:to,until:now+OVER_WARN_MS}; return; } // first tap: warn
+    overDraft=overName.value.trim(); // skipped: keep the typed name for next time
+  }
+  overName.blur(); over=null;
+  if(to==='again'){ state=ST.PLAY; resetLevel(); startMusic(levelIdx); }
+  else state=ST.TITLE;
+}
+function overTap(cx,cy){
+  if(!over||performance.now()-over.shownAt<900)return; // a mashed JUMP from the run doesn't skip it
+  for(var k in OVER_BTN){ var b=OVER_BTN[k]; if(cx>=b[0]&&cx<=b[2]&&cy>=b[1]&&cy<=b[3]){ leaveOver(k); return; } }
+  if(boardError&&cx>=238&&cy<158){ loadOverBoard(); } // tap the board to retry
+}
+
+// The rows to show: the live top ten, plus this run's score slotted in (and the
+// 10th pushed off) while it waits to be saved. After saving, the real row is found.
+function overRows(){
+  var rows=topScores.map(function(s){ return {name:s.name,score:s.score}; }), me=-1, i;
+  if(over.saved){
+    for(i=0;i<rows.length;i++) if(rows[i].name===over.savedName&&rows[i].score===Math.floor(lastScore)){ me=i; break; }
+  } else if(over.qualifies){
+    for(me=0;me<rows.length&&rows[me].score>=lastScore;me++);
+    rows.splice(me,0,{name:(overName.value.trim()||'YOU').substring(0,12),score:Math.floor(lastScore)});
+    rows=rows.slice(0,10);
+  }
+  return {rows:rows,me:me};
+}
+
+function stonePanel(x,y,w,h,inner){
+  R(x,y,w,h,'#2a1f16'); R(x+1,y+1,w-2,h-2,'#7a654a'); R(x+1,y+1,w-2,1,'#a48a66');
+  R(x+3,y+3,w-6,h-6,inner||'#2b2219');
+  for(var i=0;i*13<w-8;i++)R(x+4+i*13+(i%3)*2,y-1,6+(i%2)*4,3,i%2?'#4f9a2a':'#6cbc38'); // moss
+  R(x+2,y+3,2,6+(w%5),'#4f9a2a'); R(x+w-4,y+3,2,4+(h%6),'#4f9a2a'); // vines
+}
+function bigText(txt,x,y,size,fill,edge){
+  ctx.font='bold '+size+'px monospace'; ctx.lineJoin='round';
+  ctx.strokeStyle=edge||'#3a1a00'; ctx.lineWidth=Math.max(2,size/6); ctx.strokeText(txt,x,y);
+  ctx.fillStyle=fill; ctx.fillText(txt,x,y); ctx.lineWidth=1;
+}
+function drawStar(x,y,r){
+  ctx.beginPath();
+  for(var i=0;i<10;i++){ var a=-Math.PI/2+i*Math.PI/5, rr=i%2?r*0.45:r; ctx.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr); }
+  ctx.closePath(); ctx.fillStyle='#ffd83a'; ctx.fill(); ctx.strokeStyle='#5a3a00'; ctx.stroke();
+}
+
+function drawOver(){
+  var lv=lastWorld, th=THEMES[lv], st=BOARD_STYLE[lv];
+  var t=reduceMotion?0:performance.now()/STEP_MS, sc=t*0.4, i;
+  drawBg(sc,th); drawGround(sc,th);
+  if(th.env==='volcano'&&!reduceMotion)drawVolcanoEruption(sc);
+  R(0,0,W,H,'rgba(0,0,0,0.22)');
+  drawBoardFx(st.fx,t);
+
+  // Title sign
+  stonePanel(8,3,220,44,'#5e4b36');
   ctx.textAlign='center';
-  ctx.fillStyle='#ff4444'; ctx.font='bold 17px monospace'; ctx.fillText('GAME OVER',W/2,H/2-20);
-  ctx.fillStyle='#ffff88'; ctx.font='9px monospace';
-  var isHi=score>=hiScore&&score>0;
-  ctx.fillText('Score: '+score+(isHi?' ★ NEW BEST!':''),W/2,H/2-4);
-  ctx.fillStyle='#aaa'; ctx.font='8px monospace'; ctx.fillText('Loading leaderboard...',W/2,H/2+10);
-  ctx.fillStyle='#88ff88'; ctx.font='bold 10px monospace'; ctx.fillText('HIGH SCORES NEXT...',W/2,H/2+28);
+  bigText('OH, RAWR!',118,30,25,'#ffc21e');
+  R(26,34,184,10,'rgba(0,0,0,0.45)');
+  ctx.font='bold 7px monospace'; ctx.fillStyle='#fff4d8'; ctx.fillText('EVEN DINOSAURS HAVE BAD DAYS!',118,41.5);
+
+  // Outraged, dizzy T-Rex (in-game atlas, hurt frame) with stars circling its head
+  var dx=56, s=1.6;
+  ctx.save(); ctx.translate(dx,GROUND+2); ctx.scale(s,s);
+  var dizzy=Assets.drawSprite(ctx,'trex-dizzy','dizzy',t,-DINO_W/2,-DINO_H,DINO_W,DINO_H);
+  if(!dizzy&&!Assets.drawSprite(ctx,'trex','hurt',0,-DINO_W/2,-DINO_H,DINO_W,DINO_H))drawDino(-DINO_W/2,-DINO_H,0,false,false,false);
+  ctx.restore();
+  var hx=dx+4, hy=GROUND-DINO_H*s+4;
+  if(!dizzy){
+  ctx.strokeStyle='rgba(255,255,255,0.55)'; ctx.beginPath(); ctx.ellipse(hx,hy,22,6,0,0,Math.PI*2); ctx.stroke();
+  for(i=0;i<3;i++){ var a=t*0.06+i*2.094; drawStar(hx+Math.cos(a)*22,hy+Math.sin(a)*6,Math.sin(a)>0?5:4); }
+  }
+
+  // Score + world reached
+  stonePanel(110,52,118,64);
+  ctx.font='bold 8px monospace'; ctx.fillStyle='#ffd84a'; ctx.fillText('YOUR SCORE:',169,64);
+  bigText(fmtScore(lastScore),169,84,lastScore>=100000?17:20,'#ffc21e');
+  ctx.font='bold 7px monospace'; ctx.fillStyle='#fff4d8'; ctx.fillText('WORLD REACHED:',169,97);
+  bigText(th.name+(lv===4?' ∞':''),169,109,10,st.accent,'#1a0a00');
+
+  // Message / name entry
+  stonePanel(110,120,118,40);
+  var msg, sub='';
+  if(!boardReady&&!over.saved){ msg='CHECKING...'; sub='LOOKING UP THE TOP 10'; }
+  else if(boardError&&!over.saved){ msg='BOARD OFFLINE'; sub='TAP THE BOARD TO RETRY'; }
+  else if(over.saved){ msg='SCORE SAVED!'; sub=overRows().me>=0?'YOU ARE #'+(overRows().me+1)+'!':'NICE ONE, '+over.savedName.toUpperCase(); }
+  else if(over.qualifies){ msg=null; }
+  else if(lastScore<=0){ msg='OUCH!'; sub='RUN, JUMP AND BITE TO SCORE'; }
+  else { msg='SO CLOSE!'; sub=topScores.length?fmtScore(topScores[topScores.length-1].score-lastScore+1)+' MORE FOR THE TOP 10':''; }
+  if(msg){
+    bigText(msg,169,137,11,'#ffd84a');
+    ctx.font='bold 6px monospace'; ctx.fillStyle='#fff4d8'; ctx.fillText(sub,169,150);
+  } else {
+    var warned=over.warn&&performance.now()<over.warn.until;
+    ctx.font='bold 7px monospace'; ctx.fillStyle=warned||over.err?'#ff7a6a':'#9cff6a';
+    ctx.fillText(warned?'NOT SAVED! TAP AGAIN':over.err?"COULDN'T SAVE: TRY AGAIN":'TOP 10! ENTER YOUR NAME',169,130);
+  }
+
+  // Hall of Fame
+  stonePanel(238,4,234,154);
+  bigText('HALL OF FAME',355,21,13,'#ffc21e');
+  R(244,26,222,128,'#1d1712');
+  ctx.font='bold 7px monospace'; ctx.fillStyle='#ffd84a';
+  ctx.textAlign='center'; ctx.fillText('#',256,34); ctx.textAlign='left'; ctx.fillText('NAME',276,34); ctx.textAlign='right'; ctx.fillText('SCORE',460,34);
+  R(244,37,222,1,'#5a4a36');
+  if(!boardReady){ ctx.textAlign='center'; ctx.font='9px monospace'; ctx.fillStyle='#ddd'; ctx.fillText('Loading...',355,95); }
+  else if(boardError){ ctx.textAlign='center'; ctx.font='9px monospace'; ctx.fillStyle='#ff9a9a'; ctx.fillText("Couldn't reach the leaderboard.",355,90); ctx.fillStyle='#ddd'; ctx.fillText('Tap here to try again.',355,104); }
+  else {
+    var b=overRows();
+    if(!b.rows.length){ ctx.textAlign='center'; ctx.font='9px monospace'; ctx.fillStyle='#ddd'; ctx.fillText('No scores yet: be the first!',355,95); }
+    b.rows.forEach(function(r,i){
+      var y=39+i*11.5, me=i===b.me;
+      if(me){ R(245,y,220,11,'#1e6a1e'); R(245,y+10,220,1,'#7dff5a'); ctx.fillStyle='#ffd84a'; ctx.beginPath(); ctx.moveTo(240,y+2); ctx.lineTo(244,y+5.5); ctx.lineTo(240,y+9); ctx.fill(); }
+      else if(i%2)R(245,y,220,11,'rgba(255,255,255,0.04)');
+      ctx.font='bold 8px monospace';
+      ctx.fillStyle=me?'#b8ff8a':i===0?'#ffd84a':i===1?'#e2e8ee':i===2?'#f0a868':'#f2ead8';
+      ctx.textAlign='center'; ctx.fillText(String(i+1),256,y+8.5);
+      ctx.textAlign='left'; ctx.fillText(String(r.name||'?').substring(0,12).toUpperCase(),276,y+8.5);
+      ctx.textAlign='right'; ctx.fillText(fmtScore(r.score),460,y+8.5);
+    });
+  }
+
+  // PLAY AGAIN / MAIN MENU
+  var warnTo=over.warn&&performance.now()<over.warn.until?over.warn.to:null;
+  [['again','PLAY','AGAIN'],['menu','MAIN','MENU']].forEach(function(d){
+    if(d[0]===warnTo)d=[d[0],'SKIP','SAVE?'];
+    var r=OVER_BTN[d[0]], w=r[2]-r[0], h=r[3]-r[1];
+    stonePanel(r[0],r[1],w,h,'#4a3a2a');
+    var ix=r[0]+20, iy=r[1]+h/2+1;
+    ctx.strokeStyle='#3a1a00'; ctx.fillStyle='#ffc21e';
+    if(d[0]==='again'){ // circular arrow
+      ctx.lineWidth=5; ctx.beginPath(); ctx.arc(ix,iy,7,-0.3,Math.PI*1.55); ctx.stroke();
+      ctx.strokeStyle='#ffc21e'; ctx.lineWidth=3; ctx.stroke(); ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(ix+3,iy-11); ctx.lineTo(ix+11,iy-5); ctx.lineTo(ix+3,iy-1); ctx.closePath(); ctx.fill(); ctx.strokeStyle='#3a1a00'; ctx.stroke();
+    } else { // house
+      ctx.beginPath(); ctx.moveTo(ix-10,iy-1); ctx.lineTo(ix,iy-10); ctx.lineTo(ix+10,iy-1); ctx.lineTo(ix+7,iy-1); ctx.lineTo(ix+7,iy+8); ctx.lineTo(ix-7,iy+8); ctx.lineTo(ix-7,iy-1); ctx.closePath();
+      ctx.fill(); ctx.stroke(); R(ix-2,iy+2,4,6,'#3a1a00');
+    }
+    ctx.textAlign='center';
+    bigText(d[1],r[0]+w/2+12,r[1]+14,10,'#ffc21e'); bigText(d[2],r[0]+w/2+12,r[1]+26,10,'#ffc21e');
+  });
   ctx.textAlign='left';
-  drawMusicTestBtn();
 }
 
 function drawStarburst(cx,cy,outerR,innerR,pts){
@@ -1718,6 +1937,8 @@ function step() {
 
   var artOn=showTitleArt();
   document.body.classList.toggle('title',artOn);
+  document.body.classList.toggle('over',state===ST.DEAD);
+  document.body.classList.toggle('overname',overFormShown());
   if(artOn){ titleBox.classList.toggle('muted',Sound.isMuted()); R(0,0,W,H,'#000'); return; }
   if(state===ST.TITLE){drawTitle();return;}
 
@@ -1773,26 +1994,14 @@ function step() {
       if(score>hiScore){hiScore=score;localStorage.setItem('trex-hi',hiScore);}
       lastScore=score;
       levelIdx=0; localStorage.setItem('trex-lv',0);
-      // Submit score then show board
-      // Only if the player is still on the game-over screen (a quick tap restarts the run).
-      var run=++deathCount;
-      function goToBoard(){ if(state!==ST.DEAD||run!==deathCount)return; boardFromDead=true; state=ST.BOARD; boardShownAt=performance.now(); loadBoard(); }
-      state=ST.DEAD;
-      if(!playerName){
-        askName(function(){ submitScore(playerName,lastScore,goToBoard); });
-      } else {
-        // Board after 1.2 s on the game-over screen and once the score is saved,
-        // so it shows on the board. Taps don't skip it: kids mash JUMP when they die.
-        var saved=false, ready=false, go=function(){ if(saved&&ready)goToBoard(); };
-        submitScore(playerName,lastScore,function(){ saved=true; go(); });
-        setTimeout(function(){ ready=true; go(); }, 1200);
-        setTimeout(goToBoard, 4000); // don't wait on a slow server forever
-      }
+      // Straight to OH, RAWR!: the score is only saved if it makes the top ten
+      // and the player taps SAVE SCORE there.
+      ++deathCount; state=ST.DEAD; startOver();
     }
   }
 
   if(state===ST.LVLDONE){updateAndDrawObs(0);updateAndDrawChase(0);player.draw('celebrate');updateAndDrawEffects(0);drawFg(scroll,th);drawLevelDone(th);}
-  if(state===ST.DEAD){player.draw('hurt');drawFg(scroll,th);drawDead();}
+  if(state===ST.DEAD&&over){drawOver();}
   if(state===ST.BOARD){drawBoard();}
 }
 requestAnimationFrame(loop);

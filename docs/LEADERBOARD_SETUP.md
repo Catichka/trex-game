@@ -31,6 +31,13 @@ grant select, insert on public.scores to anon;
 
 -- Fast top-10 query.
 create index if not exists scores_score_desc on public.scores (score desc);
+
+-- One row per game run: each save carries a random run id, and a retried save
+-- with the same id is ignored (POST ?on_conflict=client_id, ignore-duplicates).
+alter table public.scores add column if not exists client_id uuid;
+alter table public.scores drop constraint if exists scores_client_id_key;
+alter table public.scores add constraint scores_client_id_key unique (client_id);
+grant insert (client_id) on public.scores to anon;
 ```
 
 If the constraint lines fail with "violated by some row", old test rows are out of range: run `delete from public.scores where score < 1 or score > 200000 or char_length(name) not between 1 and 12;` and run the setup again.
