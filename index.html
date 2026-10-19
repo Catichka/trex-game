@@ -125,6 +125,15 @@ body.overname #over { display: flex; }
   font-family: monospace; font-weight: bold; line-height: 1; width: 100%; padding: 0; border: 2px solid #3a1a00; border-radius: 4px;
   background: #ffc21e; color: #3a1a00; touch-action: manipulation; cursor: pointer;
 }
+#overScore { display: none; }
+body.typing #over {
+  position: fixed; left: 50% !important; top: calc(6px + env(safe-area-inset-top)) !important; transform: translateX(-50%);
+  width: min(70vw, 360px) !important; height: auto !important; gap: 6px; padding: 8px 10px;
+  background: rgba(20,14,8,0.94); border: 2px solid #ffc21e; border-radius: 8px;
+}
+body.typing #overScore { display: block; font: bold 14px monospace; color: #ffc21e; text-align: center; }
+body.typing #overName { height: 40px !important; font-size: 20px; }
+body.typing #overSave { height: 34px !important; font-size: 15px !important; }
 #overSave:disabled { background: #a08040; }
 
 /* Portrait phones: ask to rotate (the game pauses underneath). */
@@ -165,7 +174,7 @@ body.portrait.askrotate #rotate { display: flex; }
   <button id="rotateAnyway">play upright anyway</button>
 </div>
 
-<div id="over"><input id="overName" type="text" maxlength="12" placeholder="YOUR NAME" autocomplete="off" autocapitalize="characters" enterkeyhint="done" aria-label="Your name for the Hall of Fame"><button id="overSave">SAVE SCORE</button></div>
+<div id="over"><div id="overScore"></div><input id="overName" type="text" maxlength="12" placeholder="YOUR NAME" autocomplete="off" autocapitalize="characters" enterkeyhint="done" aria-label="Your name for the Hall of Fame"><button id="overSave">SAVE SCORE</button></div>
 
 <div id="nameBox">
   <div class="card">

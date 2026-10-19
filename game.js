@@ -108,6 +108,7 @@ function titleButtonAt(ex,ey){
 }
 function showTitleArt(){ return state===ST.TITLE&&titleReady; }
 function resize() {
+  if(document.body.classList.contains('typing')){ placeOver(); return; } // keyboard open: keep the layout
   var pad=document.getElementById('pad'), vw=window.innerWidth, vh=window.innerHeight;
   var portrait=PAD&&vh>vw;
   document.body.className=PAD?(portrait?'pad portrait':'pad landscape')+(portrait&&!uprightOK?' askrotate':''):'';
@@ -295,6 +296,10 @@ function anims(list){ // [name,row,frames,fps,loop?]
 // frame rects and fps). Anchor pins the feet (sprite row 56 = ground line, x 35
 // between the legs, which puts the torso over the gameplay hitbox) to the
 // bottom-centre of the player's box.
+// Sitting, dazed T-Rex for OH, RAWR! (art requested: loads once listed in the manifest;
+// until then the screen uses the hurt frame with code-drawn stars).
+Assets.defineSprite('trex-dizzy','assets/characters/trex/trex_dizzy',{frameWidth:64,frameHeight:64,anchor:[35,56],
+  animations:{dizzy:{row:0,frames:4,fps:6,loop:true}}});
 Assets.defineSprite('trex','assets/characters/trex/trex_atlas',{
   frameWidth:64, frameHeight:64, anchor:[35,56],
   animations:Object.assign(anims([['idle',0,4,5],['run',1,8,12],['jump',2,6,10,false],['fall',3,4,8],['land',4,4,10,false],
@@ -1439,6 +1444,7 @@ function drawLevelDone(th) {
 // a score that makes it gets a name field (prefilled with the last name saved
 // to the board) and is only saved when the player taps SAVE SCORE.
 var over=null; // per-death state, set by startOver()
+var overDraft=''; // a name typed for a score that was skipped, offered again next time
 var OVER_BTN={ again:[238,163,352,195], menu:[358,163,472,195] }; // canvas px [l,t,r,b]
 var OVER_FORM=[115,132,223,157]; // where the name field (14 px) + SAVE SCORE (10 px) sit
 var overBox=document.getElementById('over'), overName=document.getElementById('overName'), overSave=document.getElementById('overSave');
@@ -1447,8 +1453,9 @@ function lastBoardName(){ try{ return localStorage.getItem('trex-lb-name')||''; 
 function fmtScore(n){ return String(Math.floor(n)).replace(/\B(?=(\d{3})+(?!\d))/g,','); }
 
 function startOver(){
-  over={ shownAt:performance.now(), qualifies:null, saving:false, saved:false, err:false, savedName:'' };
-  overName.value=lastBoardName()||playerName||'';
+  over={ shownAt:performance.now(), qualifies:null, saving:false, saved:false, err:false, savedName:'',
+          tried:[], firstTry:0, warn:null };
+  overName.value=overDraft||lastBoardName()||playerName||'';
   overSave.disabled=false; overSave.textContent='SAVE SCORE';
   loadOverBoard();
 }
@@ -1470,29 +1477,52 @@ function placeOver(){
 }
 function saveOverScore(){
   var o=over;
-  if(!o||!o.qualifies||o.saving||o.saved)return; // one save per run
+  if(!o||!o.qualifies||o.saving||o.saved)return; // one save at a time, one row per run
   var n=(overName.value.trim()||'Dino Kid').substring(0,12); // same rules as the start prompt
+  var sc=Math.floor(lastScore), retry=o.tried.length>0;
   overName.value=n; o.saving=true; o.err=false;
+  if(o.tried.indexOf(n)<0)o.tried.push(n);
+  if(!o.firstTry)o.firstTry=Date.now();
   overSave.disabled=true; overSave.textContent='SAVING...';
-  sbFetch('scores',{ method:'POST', body:JSON.stringify({ name:n, score:Math.floor(lastScore) }) })
-    .then(function(){
-      if(o!==over)return;
-      o.saving=false; o.saved=true; o.savedName=n;
-      playerName=n;
-      try{ localStorage.setItem('trex-lb-name',n); localStorage.setItem('trex-name',n); }catch(e){}
-      overName.blur();
-      loadOverBoard();
-    },function(e){
-      console.warn(e);
-      if(o!==over)return;
-      o.saving=false; o.err=true; // keep the typed name; the button becomes a retry
-      overSave.disabled=false; overSave.textContent='TRY AGAIN';
-    });
+  function done(){
+    if(o!==over)return;
+    o.saving=false; o.saved=true; o.savedName=n; o.warn=null; overDraft='';
+    playerName=n;
+    try{ localStorage.setItem('trex-lb-name',n); localStorage.setItem('trex-name',n); }catch(e){}
+    overName.blur();
+    loadOverBoard();
+  }
+  function failed(e){
+    console.warn(e);
+    if(o!==over)return;
+    o.saving=false; o.err=true; // keep the typed name; the button becomes a retry
+    overSave.disabled=false; overSave.textContent='TRY AGAIN';
+  }
+  function post(){ return sbFetch('scores',{ method:'POST', body:JSON.stringify({ name:n, score:sc }) }); }
+  // A failed attempt may still have reached the server (only the reply was lost),
+  // so a retry first looks for this run's row: same score, a name tried this run,
+  // added since the first attempt (10 min of slack for clock differences).
+  var check=!retry?Promise.resolve(false):sbFetch('scores?select=id&limit=1&score=eq.'+sc+
+      '&name=in.('+o.tried.map(function(t){ return '"'+t.replace(/["\\]/g,'')+'"'; }).map(encodeURIComponent).join(',')+')'+
+      '&created_at=gte.'+encodeURIComponent(new Date(o.firstTry-600000).toISOString()))
+    .then(function(r){ return r.json(); }).then(function(d){ return Array.isArray(d)&&d.length>0; });
+  check.then(function(already){ return already?null:post(); }).then(done,failed);
 }
 overSave.addEventListener('click',saveOverScore);
+// On touch screens the keyboard covers the bottom of a sideways phone, so while
+// typing the field floats at the top (with the score), and the canvas keeps its size.
+overName.addEventListener('focus',function(){ if(PAD){ document.body.classList.add('typing'); document.getElementById('overScore').textContent='SAVE '+fmtScore(lastScore)+' AS:'; } });
+overName.addEventListener('blur',function(){ document.body.classList.remove('typing'); setTimeout(resize,50); });
 overName.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); saveOverScore(); } });
 
+var OVER_WARN_MS=4000;
 function leaveOver(to){
+  var o=over;
+  if(o&&o.qualifies&&!o.saved){
+    var now=performance.now();
+    if(!o.warn||o.warn.to!==to||now>o.warn.until){ o.warn={to:to,until:now+OVER_WARN_MS}; return; } // first tap: warn
+    overDraft=overName.value.trim(); // skipped: keep the typed name for next time
+  }
   overName.blur(); over=null;
   if(to==='again'){ state=ST.PLAY; resetLevel(); startMusic(levelIdx); }
   else state=ST.TITLE;
@@ -1552,11 +1582,14 @@ function drawOver(){
   // Outraged, dizzy T-Rex (in-game atlas, hurt frame) with stars circling its head
   var dx=56, s=1.6;
   ctx.save(); ctx.translate(dx,GROUND+2); ctx.scale(s,s);
-  if(!Assets.drawSprite(ctx,'trex','hurt',0,-DINO_W/2,-DINO_H,DINO_W,DINO_H))drawDino(-DINO_W/2,-DINO_H,0,false,false,false);
+  var dizzy=Assets.drawSprite(ctx,'trex-dizzy','dizzy',t,-DINO_W/2,-DINO_H,DINO_W,DINO_H);
+  if(!dizzy&&!Assets.drawSprite(ctx,'trex','hurt',0,-DINO_W/2,-DINO_H,DINO_W,DINO_H))drawDino(-DINO_W/2,-DINO_H,0,false,false,false);
   ctx.restore();
   var hx=dx+4, hy=GROUND-DINO_H*s+4;
+  if(!dizzy){
   ctx.strokeStyle='rgba(255,255,255,0.55)'; ctx.beginPath(); ctx.ellipse(hx,hy,22,6,0,0,Math.PI*2); ctx.stroke();
   for(i=0;i<3;i++){ var a=t*0.06+i*2.094; drawStar(hx+Math.cos(a)*22,hy+Math.sin(a)*6,Math.sin(a)>0?5:4); }
+  }
 
   // Score + world reached
   stonePanel(110,52,118,64);
@@ -1578,7 +1611,9 @@ function drawOver(){
     bigText(msg,169,137,11,'#ffd84a');
     ctx.font='bold 6px monospace'; ctx.fillStyle='#fff4d8'; ctx.fillText(sub,169,150);
   } else {
-    ctx.font='bold 7px monospace'; ctx.fillStyle='#9cff6a'; ctx.fillText(over.err?"COULDN'T SAVE: TRY AGAIN":'TOP 10! ENTER YOUR NAME',169,130);
+    var warned=over.warn&&performance.now()<over.warn.until;
+    ctx.font='bold 7px monospace'; ctx.fillStyle=warned||over.err?'#ff7a6a':'#9cff6a';
+    ctx.fillText(warned?'NOT SAVED! TAP AGAIN':over.err?"COULDN'T SAVE: TRY AGAIN":'TOP 10! ENTER YOUR NAME',169,130);
   }
 
   // Hall of Fame
@@ -1606,7 +1641,9 @@ function drawOver(){
   }
 
   // PLAY AGAIN / MAIN MENU
+  var warnTo=over.warn&&performance.now()<over.warn.until?over.warn.to:null;
   [['again','PLAY','AGAIN'],['menu','MAIN','MENU']].forEach(function(d){
+    if(d[0]===warnTo)d=[d[0],'SKIP','SAVE?'];
     var r=OVER_BTN[d[0]], w=r[2]-r[0], h=r[3]-r[1];
     stonePanel(r[0],r[1],w,h,'#4a3a2a');
     var ix=r[0]+20, iy=r[1]+h/2+1;
