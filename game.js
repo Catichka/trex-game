@@ -1727,15 +1727,55 @@ function drawCrown(cx,cy,s,tilt){
 // Same stone panels, gold lettering and world scenery, but a cheering T-Rex,
 // a champion plaque, the live top ten and one way out: BACK TO MENU.
 var HOF_BTN=[238,163,472,195], HOF_LIST=[238,4,472,158]; // canvas px [l,t,r,b]
+// The approved celebration art (docs/art/hall-of-fame-celebration-v01) at
+// canvas size, with its example rows and button label cleared: the live top
+// ten and BACK TO MENU are drawn into those spaces. Drawn screen is the fallback.
+var hofArt=new Image(), hofReady=false;
+hofArt.onload=function(){ hofReady=true; }; hofArt.src='assets/ui/hall-of-fame.png';
+var HOF_ART_BTN=[181,168,299,191], HOF_ART_LIST=[161,68,323,162];
 function openBoard(){ state=ST.BOARD; boardShownAt=performance.now(); loadBoard(); }
 function boardTap(cx,cy){
   if(performance.now()-boardShownAt<300)return;
-  var b=HOF_BTN, l=HOF_LIST;
+  var b=hofReady?HOF_ART_BTN:HOF_BTN, l=hofReady?HOF_ART_LIST:HOF_LIST;
   if(cx>=b[0]&&cx<=b[2]&&cy>=b[1]&&cy<=b[3]){ state=ST.TITLE; return; }
   if(boardError&&cx>=l[0]&&cx<=l[2]&&cy>=l[1]&&cy<=l[3])loadBoard(); // tap the board to retry
 }
 var CONFETTI=['#ffd23a','#ff5a7a','#5ad0ff','#7dff5a','#c08aff','#ff9a3a'];
-function drawBoard() {
+function drawBoard(){ if(hofReady)drawBoardArt(); else drawBoardDrawn(); }
+function drawBoardArt(){
+  var t=reduceMotion?0:performance.now()/STEP_MS, i;
+  ctx.drawImage(hofArt,0,0,W,H);
+  for(i=0;i<5;i++){ // twinkles around the crown and sign
+    var p=[[200,6],[284,9],[130,26],[350,22],[240,2]][i], k=reduceMotion?1:Math.max(0,Math.sin(t*0.05+i*1.7));
+    if(k<0.2)continue; var r=Math.round(1+k*2);
+    R(p[0]-r,p[1],r*2+1,1,'#fff6c0'); R(p[0],p[1]-r,1,r*2+1,'#fff6c0'); R(p[0],p[1],1,1,'#ffffff');
+  }
+  var l=HOF_ART_LIST, rh=(l[3]-l[1])/10;
+  ctx.textAlign='center'; ctx.font='9px monospace';
+  if(!boardReady){ ctx.fillStyle='#ddd'; ctx.fillText('Loading...',242,118); }
+  else if(boardError){ ctx.fillStyle='#ff9a9a'; ctx.fillText("Couldn't reach the board.",242,110); ctx.fillStyle='#ddd'; ctx.fillText('Tap here to try again.',242,123); }
+  else if(!topScores.length){ ctx.fillStyle='#ddd'; ctx.fillText('No scores yet:',242,110); ctx.fillText('be the first!',242,122); }
+  else topScores.forEach(function(s,i){
+    var y=Math.round(l[1]+i*rh), y2=Math.round(l[1]+(i+1)*rh), hh=y2-y, cy=y+5; // whole pixels keep text sharp
+    if(i<3){ R(l[0]+1,y,l[2]-l[0]-2,hh-1,['#754600','#2e2d2d','#702e05'][i]); R(l[0]+1,y,l[2]-l[0]-2,1,['#ffd500','#7a7772','#c05a10'][i]); }
+    else { R(l[0]+1,y,l[2]-l[0]-2,hh-1,i%2?'#292119':'#1e1914'); R(l[0]+1,y+hh-1,l[2]-l[0]-2,1,'#070503'); }
+    if(i<3){
+      ctx.fillStyle=['#7a4a00','#45464c','#6a2a04'][i]; ctx.beginPath(); ctx.arc(171,cy,4.5,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle=['#ffc81e','#d8dce4','#f08a3a'][i]; ctx.beginPath(); ctx.arc(171,cy,3.5,0,Math.PI*2); ctx.fill();
+      ctx.font='bold 7px monospace'; ctx.fillStyle='#2a1500'; ctx.textAlign='center'; ctx.fillText(String(i+1),171,cy+2.5);
+    } else { ctx.font='bold 8px monospace'; ctx.fillStyle='#f2ead8'; ctx.textAlign='center'; ctx.fillText(String(i+1),171,cy+3); }
+    ctx.font='bold 8px monospace';
+    ctx.fillStyle=i===0?'#ffe07a':i===1?'#eef0f4':i===2?'#ffc08a':'#f2ead8';
+    ctx.textAlign='left'; ctx.fillText(String(s.name||'?').substring(0,12).toUpperCase(),194,cy+3);
+    ctx.textAlign='right'; ctx.fillText(fmtScore(s.score),316,cy+3);
+  });
+  // BACK TO MENU, in the art's button
+  ctx.fillStyle='#ffc21e'; ctx.strokeStyle='#3a1a00';
+  ctx.beginPath(); ctx.moveTo(190,179.5); ctx.lineTo(197,174); ctx.lineTo(197,177); ctx.lineTo(204,177); ctx.lineTo(204,182); ctx.lineTo(197,182); ctx.lineTo(197,185); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.textAlign='center'; bigText('BACK TO MENU',248,184,11,'#ffc21e');
+  ctx.textAlign='left';
+}
+function drawBoardDrawn() {
   var lv=lastWorld, th=THEMES[lv], st=BOARD_STYLE[lv];
   var t=reduceMotion?0:performance.now()/STEP_MS, sc=t*0.4, i;
   drawBg(sc,th); drawGround(sc,th);
