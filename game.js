@@ -825,10 +825,13 @@ var OBJ = {
   // vent's steam column (always puffing), the spikes. The lava pool is flat:
   // it only catches feet on the ground (see checkCollisions).
   oS:{w:16,h:32}, cT:{w:16,h:40}, sV:{w:14,h:26}, lP:{w:36,h:9},
-  // Grasslands fallen trees (PR #49), box = native sprite. `hit` lists solid
-  // parts [dx,dy,w,h] inside the box (each still gets the usual margin), so
-  // the branch's empty upper corners stay open.
-  fT:{w:54,h:24}, fB:{w:54,h:39,hit:[[0,19,54,20],[21,0,18,22]]},
+  // Grasslands fallen trees (PR #49), drawn at 2/3 size (PR #53), box = drawn
+  // sprite. `hit` lists solid parts [dx,dy,w,h] inside the box, so the
+  // branch's empty upper corners stay open. `low` obstacles are short enough
+  // to slip under the T-Rex's usual hit box, so they use a small margin and
+  // reach down to the T-Rex's feet (see checkCollisions).
+  fT:{w:36,h:16,low:true,hit:[[1,2,34,13]]},
+  fB:{w:36,h:26,low:true,hit:[[1,13,34,13],[15,0,10,15]]},
   dS:{w:PIX*5,h:PIX*4}, dB:{w:PIX*9,h:PIX*8}, // desert sandstone = rS/rL
   sR:{w:PIX*9,h:PIX*3}, cG:{w:PIX*6,h:PIX*7}, aO:{w:PIX*9,h:PIX*8}, // = gl, st, rL
   pt:{w:PIX*10,h:PIX*5},
@@ -907,8 +910,8 @@ function drawObstaclePlaceholder(o){
     case 'cG': drawStump(o.x,o.y);        break;
     case 'aO': drawRock(o.x,o.y,true);    break;
     // Fallen-tree fallbacks (only if the PNGs fail to load)
-    case 'fT': R(o.x+2,o.y+5,o.w-4,o.h-7,'#8a5a2a'); R(o.x,o.y+8,6,10,'#e0b060'); break;
-    case 'fB': R(o.x+2,o.y+21,o.w-4,o.h-23,'#8a5a2a'); R(o.x+24,o.y,12,22,'#7a4a20'); R(o.x,o.y+24,6,10,'#e0b060'); break;
+    case 'fT': R(o.x+1,o.y+3,o.w-2,o.h-5,'#8a5a2a'); R(o.x,o.y+5,4,7,'#e0b060'); break;
+    case 'fB': R(o.x+1,o.y+14,o.w-2,o.h-15,'#8a5a2a'); R(o.x+16,o.y,8,15,'#7a4a20'); R(o.x,o.y+16,4,7,'#e0b060'); break;
     case 'st': drawStump(o.x,o.y);         break;
     case 'mu': drawMushroom(o.x,o.y);      break;
     case 'fl': drawFernLog(o.x,o.y);       break;
@@ -1099,7 +1102,12 @@ function drawDebug(){
   ctx.strokeStyle='#ff00ff';
   ctx.strokeRect(player.hitX+5.5,player.hitY+5.5,player.hitW-11,player.hitH-11);
   ctx.strokeStyle='#ff4444';
-  obstacles.forEach(function(o){if(o.harmless)return; obsBoxes(o).forEach(function(b){ctx.strokeRect(b[0]+5.5,b[1]+5.5,b[2]-11,b[3]-11);});});
+  obstacles.forEach(function(o){
+    if(o.harmless)return;
+    var m=OBJ[o.kind]&&OBJ[o.kind].low?LOW_MG:5;
+    obsBoxes(o).forEach(function(b){ctx.strokeRect(b[0]+m+0.5,b[1]+m+0.5,b[2]-m*2-1,b[3]-m*2-1);});
+    if(OBJ[o.kind]&&OBJ[o.kind].low){ctx.strokeStyle='#ff00ff';ctx.strokeRect(player.hitX+5.5,player.hitY+5.5,player.hitW-11,player.hitH-6);ctx.strokeStyle='#ff4444';}
+  });
   ctx.strokeStyle='#44ff44';
   chaseables.forEach(function(c){ctx.strokeRect(c.x+2.5,c.y-1.5,c.w-5,c.h+1);});
   ctx.strokeStyle=player.biting?'#ffff00':'rgba(255,255,0,0.35)';
@@ -1108,6 +1116,7 @@ function drawDebug(){
 
 function addPopup(x,y,txt,col){ popups.push({x:x,y:y,txt:txt,col:col||'#ffff00',life:36}); }
 
+var LOW_MG=2; // margin for `low` obstacles (grasslands fallen trees)
 function checkCollisions() {
   var mg=5;
   var px=player.hitX+mg,py=player.hitY+mg,pw=player.hitW-mg*2,ph=player.hitH-mg*2;
@@ -1129,8 +1138,9 @@ function checkCollisions() {
       continue;
     }
     if(o.harmless)continue; // grasslands scenery (small rocks, little logs)
-    var bx=obsBoxes(o);
-    for(var bi=0;bi<bx.length;bi++)if(hits(px,py,pw,ph,bx[bi][0]+mg,bx[bi][1]+mg,bx[bi][2]-mg*2,bx[bi][3]-mg*2))return true;
+    var low=OBJ[o.kind]&&OBJ[o.kind].low, om=low?LOW_MG:mg, bx=obsBoxes(o);
+    var ph2=low?player.hitY+player.hitH-py:ph; // low obstacles: down to the feet
+    for(var bi=0;bi<bx.length;bi++)if(hits(px,py,pw,ph2,bx[bi][0]+om,bx[bi][1]+om,bx[bi][2]-om*2,bx[bi][3]-om*2))return true;
   }
   for(var j=chaseables.length-1;j>=0;j--){
     var c=chaseables[j];
