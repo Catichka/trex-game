@@ -27,6 +27,13 @@
     "charred-tree",
     "steam-vent",
     "lava-pool",
+    "fallen-trunk",
+    "fallen-trunk-branch",
+    "sandstone-slab",
+    "sandstone-butte",
+    "swamp-root",
+    "cave-stalagmite",
+    "amethyst-outcrop",
     "trex-dizzy"
   ],
   "environments": [
