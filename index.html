@@ -112,6 +112,21 @@ body.title #pad { display: none; }
 }
 #titleMute::after { transform: rotate(-45deg); }
 
+/* OH, RAWR! screen: the name field and SAVE SCORE sit over the canvas (see OVER_FORM). */
+body.over #pad { display: none; }
+#over { display: none; position: fixed; z-index: 3; flex-direction: column; justify-content: space-between; }
+body.overname #over { display: flex; }
+#overName {
+  font: bold 16px monospace; line-height: 1; text-align: center; text-transform: uppercase; width: 100%;
+  background: #120d08; color: #fff4d8; border: 2px solid #ffc21e; border-radius: 4px; padding: 0 4px;
+  touch-action: auto; -webkit-user-select: text; user-select: text;
+}
+#overSave {
+  font-family: monospace; font-weight: bold; line-height: 1; width: 100%; padding: 0; border: 2px solid #3a1a00; border-radius: 4px;
+  background: #ffc21e; color: #3a1a00; touch-action: manipulation; cursor: pointer;
+}
+#overSave:disabled { background: #a08040; }
+
 /* Portrait phones: ask to rotate (the game pauses underneath). */
 #rotate {
   display: none; position: fixed; inset: 0; z-index: 9;
@@ -149,6 +164,8 @@ body.portrait.askrotate #rotate { display: flex; }
   <p>T-Rex Run plays best in landscape: you see more of the path ahead.</p>
   <button id="rotateAnyway">play upright anyway</button>
 </div>
+
+<div id="over"><input id="overName" type="text" maxlength="12" placeholder="YOUR NAME" autocomplete="off" autocapitalize="characters" enterkeyhint="done" aria-label="Your name for the Hall of Fame"><button id="overSave">SAVE SCORE</button></div>
 
 <div id="nameBox">
   <div class="card">
