@@ -24,5 +24,6 @@
     }
   },
   "ground_y": 152,
-  "rendering": "nearest-neighbor"
+  "rendering": "nearest-neighbor",
+  "scale": 0.6666666666666666
 }
