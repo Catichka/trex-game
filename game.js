@@ -351,6 +351,11 @@ var OBS_SPRITE={
   st:'stump', mu:'mushroom', fl:'fern-log', iS:'ice-shard-small', iT:'ice-shard-tall',
   sb:'snowball', lS:'lava-rock-small', lL:'lava-rock-large', fg:'fire-geyser', pt:'pterodactyl',
   oS:'obsidian-spikes', cT:'charred-tree', sV:'steam-vent', lP:'lava-pool',
+  // Biome identity v01: grasslands fallen trees (PR #49), desert sandstone (PR #50).
+  fT:'fallen-trunk', fB:'fallen-trunk-branch', dS:'sandstone-slab', dB:'sandstone-butte',
+  // Swamp/caverns duplicates (PR #51): swamp root for the log, cavern stalagmite
+  // and amethyst outcrop for the stump and large rock.
+  sR:'swamp-root', cG:'cave-stalagmite', aO:'amethyst-outcrop',
 };
 Object.keys(OBS_SPRITE).forEach(function(k){
   var id=OBS_SPRITE[k]; if(id==='pterodactyl')return;
@@ -585,7 +590,9 @@ var THEMES = [
   { name:'GRASSLANDS', env:'grasslands', num:'1',
     skyT:'#2060d0',skyB:'#60b0ff',hillB:'#2a7020',hillF:'#3a9030',
     gT:'#5a9020',gnd:'#6ab030',gTex:'#3a6010',
-    obs:['cS','cL','rS','rL','gl','pt','rS','pt'], cloud:'#e8f4ff',
+    obs:['fT','fB','rS','rL','gl','pt','rS','pt'], cloud:'#e8f4ff',
+    // Small rocks and little logs are scenery here: walk right over them.
+    harmless:{rS:true,gl:true},
     drawExtra: function(sc){ drawGrassExtra(sc); }
   },
   { name:'VOLCANO', env:'volcano', num:'2', lava:true,
@@ -600,19 +607,21 @@ var THEMES = [
   { name:'DESERT', env:'desert', num:'3',
     skyT:'#3080d0',skyB:'#a0d0f0',hillB:'#c08850',hillF:'#d8a868',
     gT:'#e0b070',gnd:'#c89050',gTex:'#a87038',
-    obs:['cS','cL','rS','pt','rL','cS','pt'], cloud:'#fff4e0',
+    // Sandstone slab/butte are the desert's own small/large rocks (same size,
+    // same solid collision as rS/rL elsewhere).
+    obs:['cS','cL','dS','pt','dB','cS','pt'], cloud:'#fff4e0',
     drawExtra: function(sc){}
   },
   { name:'SWAMP', env:'swamp', num:'4',
     skyT:'#103830',skyB:'#2a6a60',hillB:'#1a4a40',hillF:'#245a4a',
     gT:'#2a5a3a',gnd:'#1e3a2a',gTex:'#3a6a4a',
-    obs:['mu','fl','pt','gl','st','mu','pt'], cloud:'#80a8a0',
+    obs:['mu','fl','pt','sR','st','mu','pt'], cloud:'#80a8a0',
     drawExtra: function(sc){ drawForestExtra(sc); }
   },
   { name:'CAVERNS', env:'caverns', num:'∞',
     skyT:'#100820',skyB:'#301050',hillB:'#200828',hillF:'#301038',
     gT:'#202020',gnd:'#181818',gTex:'#ff00aa',
-    obs:['iS','pt','st','iT','pt','rL','pt'], cloud:'#303050',
+    obs:['iS','pt','cG','iT','pt','aO','pt'], cloud:'#303050',
     drawExtra: function(sc){ drawEndlessExtra(sc); }
   },
 ];
@@ -816,8 +825,20 @@ var OBJ = {
   // vent's steam column (always puffing), the spikes. The lava pool is flat:
   // it only catches feet on the ground (see checkCollisions).
   oS:{w:16,h:32}, cT:{w:16,h:40}, sV:{w:14,h:26}, lP:{w:36,h:9},
+  // Grasslands fallen trees (PR #49), box = native sprite. `hit` lists solid
+  // parts [dx,dy,w,h] inside the box (each still gets the usual margin), so
+  // the branch's empty upper corners stay open.
+  fT:{w:54,h:24}, fB:{w:54,h:39,hit:[[0,19,54,20],[21,0,18,22]]},
+  dS:{w:PIX*5,h:PIX*4}, dB:{w:PIX*9,h:PIX*8}, // desert sandstone = rS/rL
+  sR:{w:PIX*9,h:PIX*3}, cG:{w:PIX*6,h:PIX*7}, aO:{w:PIX*9,h:PIX*8}, // = gl, st, rL
   pt:{w:PIX*10,h:PIX*5},
 };
+// Solid boxes of an obstacle (one unless OBJ lists parts).
+function obsBoxes(o){
+  var hb=OBJ[o.kind]&&OBJ[o.kind].hit;
+  if(!hb)return [[o.x,o.y,o.w,o.h]];
+  return hb.map(function(b){return [o.x+b[0],o.y+b[1],b[2],b[3]];});
+}
 
 // Pterodactyl flight heights (box top y), lowest first; level N uses the first N.
 // All sit above the standing T-Rex's head, so they're prey you jump to catch.
@@ -856,12 +877,12 @@ function spawnObs(th) {
     spawnT=Math.min(spawnT,0)-Math.round((cx-W-20)/Math.max(gameSpeed,1)); // room after a long set piece
     return;
   }
-  obstacles.push({kind:kind,x:W+20,y:oy,w:sz.w,h:sz.h,bitable:kind==='pt',wT:0,wF:0,flee:false,glide:false,swoop:kind==='pt'&&Math.random()<SWOOP_CHANCE[levelIdx],gT:60+Math.floor(Math.random()*90),anim:new Animator(kind==='pt'?'fly':'idle')});
+  obstacles.push({kind:kind,x:W+20,y:oy,w:sz.w,h:sz.h,bitable:kind==='pt',harmless:!!(th.harmless&&th.harmless[kind]),wT:0,wF:0,flee:false,glide:false,swoop:kind==='pt'&&Math.random()<SWOOP_CHANCE[levelIdx],gT:60+Math.floor(Math.random()*90),anim:new Animator(kind==='pt'?'fly':'idle')});
   // Occasional paired ground obstacle
-  if(!th.combos&&(kind==='cS'||kind==='st'||kind==='lS')&&Math.random()<0.28){
+  if(!th.combos&&(kind==='cS'||kind==='st'||kind==='cG'||kind==='lS')&&Math.random()<0.28){
     var k2=th.obs.filter(function(t){return t!=='pt';})[0]||kind;
     var s2=OBJ[k2]||sz;
-    obstacles.push({kind:k2,x:W+20+sz.w+PIX*5,y:GROUND-s2.h,w:s2.w,h:s2.h,bitable:false,wT:0,wF:0,flee:false,anim:new Animator('idle')});
+    obstacles.push({kind:k2,x:W+20+sz.w+PIX*5,y:GROUND-s2.h,w:s2.w,h:s2.h,bitable:false,harmless:!!(th.harmless&&th.harmless[k2]),wT:0,wF:0,flee:false,anim:new Animator('idle')});
   }
 }
 
@@ -880,6 +901,14 @@ function drawObstaclePlaceholder(o){
     case 'rS': drawRock(o.x,o.y,false);   break;
     case 'rL': drawRock(o.x,o.y,true);    break;
     case 'gl': drawGrassLog(o.x,o.y);     break;
+    case 'dS': drawRock(o.x,o.y,false);   break;
+    case 'dB': drawRock(o.x,o.y,true);    break;
+    case 'sR': drawGrassLog(o.x,o.y);     break;
+    case 'cG': drawStump(o.x,o.y);        break;
+    case 'aO': drawRock(o.x,o.y,true);    break;
+    // Fallen-tree fallbacks (only if the PNGs fail to load)
+    case 'fT': R(o.x+2,o.y+5,o.w-4,o.h-7,'#8a5a2a'); R(o.x,o.y+8,6,10,'#e0b060'); break;
+    case 'fB': R(o.x+2,o.y+21,o.w-4,o.h-23,'#8a5a2a'); R(o.x+24,o.y,12,22,'#7a4a20'); R(o.x,o.y+24,6,10,'#e0b060'); break;
     case 'st': drawStump(o.x,o.y);         break;
     case 'mu': drawMushroom(o.x,o.y);      break;
     case 'fl': drawFernLog(o.x,o.y);       break;
@@ -1070,7 +1099,7 @@ function drawDebug(){
   ctx.strokeStyle='#ff00ff';
   ctx.strokeRect(player.hitX+5.5,player.hitY+5.5,player.hitW-11,player.hitH-11);
   ctx.strokeStyle='#ff4444';
-  obstacles.forEach(function(o){ctx.strokeRect(o.x+5.5,o.y+5.5,o.w-11,o.h-11);});
+  obstacles.forEach(function(o){if(o.harmless)return; obsBoxes(o).forEach(function(b){ctx.strokeRect(b[0]+5.5,b[1]+5.5,b[2]-11,b[3]-11);});});
   ctx.strokeStyle='#44ff44';
   chaseables.forEach(function(c){ctx.strokeRect(c.x+2.5,c.y-1.5,c.w-5,c.h+1);});
   ctx.strokeStyle=player.biting?'#ffff00':'rgba(255,255,0,0.35)';
@@ -1099,7 +1128,9 @@ function checkCollisions() {
       if(player.y+DINO_H>GROUND-6&&px+pw>o.x+6&&px<o.x+o.w-6)return true;
       continue;
     }
-    if(hits(px,py,pw,ph,o.x+mg,o.y+mg,o.w-mg*2,o.h-mg*2))return true;
+    if(o.harmless)continue; // grasslands scenery (small rocks, little logs)
+    var bx=obsBoxes(o);
+    for(var bi=0;bi<bx.length;bi++)if(hits(px,py,pw,ph,bx[bi][0]+mg,bx[bi][1]+mg,bx[bi][2]-mg*2,bx[bi][3]-mg*2))return true;
   }
   for(var j=chaseables.length-1;j>=0;j--){
     var c=chaseables[j];

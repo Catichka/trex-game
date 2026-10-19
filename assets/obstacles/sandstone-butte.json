@@ -1,0 +1,28 @@
+{
+  "name": "sandstone-butte",
+  "image": "sandstone-butte.png",
+  "frame_size": [
+    27,
+    24
+  ],
+  "pivot": [
+    13,
+    23
+  ],
+  "animations": {
+    "idle": {
+      "fps": 1,
+      "loop": true,
+      "frames": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 27,
+          "h": 24
+        }
+      ]
+    }
+  },
+  "ground_y": 152,
+  "rendering": "nearest-neighbor"
+}
