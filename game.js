@@ -299,9 +299,9 @@ function anims(list){ // [name,row,frames,fps,loop?]
 // frame rects and fps). Anchor pins the feet (sprite row 56 = ground line, x 35
 // between the legs, which puts the torso over the gameplay hitbox) to the
 // bottom-centre of the player's box.
-// Sitting, dazed T-Rex for OH, RAWR! (art requested: loads once listed in the manifest;
-// until then the screen uses the hurt frame with code-drawn stars).
-Assets.defineSprite('trex-dizzy','assets/characters/trex/trex_dizzy',{frameWidth:64,frameHeight:64,anchor:[35,56],
+// Sitting, dazed T-Rex for OH, RAWR! (issue #45): 76x100 frames, drawn 1:1,
+// pivot under the seat. If it fails to load, the screen uses the hurt frame.
+Assets.defineSprite('trex-dizzy','assets/characters/trex/trex_dizzy',{frameWidth:76,frameHeight:100,anchor:[38,97],
   animations:{dizzy:{row:0,frames:4,fps:6,loop:true}}});
 Assets.defineSprite('trex','assets/characters/trex/trex_atlas',{
   frameWidth:64, frameHeight:64, anchor:[35,56],
@@ -1587,11 +1587,13 @@ function drawOver(){
   R(26,34,184,10,'rgba(0,0,0,0.45)');
   ctx.font='bold 7px monospace'; ctx.fillStyle='#fff4d8'; ctx.fillText('EVEN DINOSAURS HAVE BAD DAYS!',118,41.5);
 
-  // Outraged, dizzy T-Rex (in-game atlas, hurt frame) with stars circling its head
+  // Outraged, dizzy T-Rex sitting on the ground (its own sprite, stars drawn in);
+  // without it, the in-game hurt frame scaled up with code-drawn stars
   var dx=56, s=1.6;
-  ctx.save(); ctx.translate(dx,GROUND+2); ctx.scale(s,s);
+  ctx.save(); ctx.translate(dx,GROUND+2);
   var dizzy=Assets.drawSprite(ctx,'trex-dizzy','dizzy',t,-DINO_W/2,-DINO_H,DINO_W,DINO_H);
-  if(!dizzy&&!Assets.drawSprite(ctx,'trex','hurt',0,-DINO_W/2,-DINO_H,DINO_W,DINO_H))drawDino(-DINO_W/2,-DINO_H,0,false,false,false);
+  if(!dizzy){ ctx.scale(s,s);
+    if(!Assets.drawSprite(ctx,'trex','hurt',0,-DINO_W/2,-DINO_H,DINO_W,DINO_H))drawDino(-DINO_W/2,-DINO_H,0,false,false,false); }
   ctx.restore();
   var hx=dx+4, hy=GROUND-DINO_H*s+4;
   if(!dizzy){

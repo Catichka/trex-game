@@ -1,0 +1,16 @@
+{
+  "frameWidth": 76,
+  "frameHeight": 100,
+  "anchor": [
+    38,
+    97
+  ],
+  "animations": {
+    "dizzy": {
+      "row": 0,
+      "frames": 4,
+      "fps": 6,
+      "loop": true
+    }
+  }
+}
