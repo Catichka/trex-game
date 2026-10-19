@@ -316,7 +316,6 @@ Assets.defineSprite('mama-stego','assets/characters/mama-stego/mama_stego_atlas'
 // Volcano meteor (encounters.js), ChatGPT atlas PR #29: fall 48x48, impact 64x48,
 // crater 48x16, warning 48x12; frames and pivots come from the JSON.
 Assets.defineSprite('hall-torch','assets/ui/hall-torch',{frameWidth:32,frameHeight:48,anchor:[16,48],animations:{idle:{row:0,frames:4,fps:9,loop:true}}});
-Assets.defineSprite('hall-trex-cheer','assets/ui/hall-trex-cheer',{frameWidth:48,frameHeight:48,anchor:[24,48],animations:{celebrate:{row:0,frames:6,fps:9,loop:true}}});
 Assets.defineSprite('meteor','assets/effects/meteor/meteor_atlas',{frameWidth:48, frameHeight:48, animations:{}});
 Assets.defineSprite('stegosaurus','assets/characters/stegosaurus/stegosaurus',{
   frameWidth:48, frameHeight:32,
@@ -1643,14 +1642,16 @@ function drawBoard() {
     }
   }
 
-  // Cheering T-Rex beside the monument (clear of the JUMP button)
-  // The cheer sheet bounces in its own frames; only the fallback needs a code hop.
-  var hop=reduceMotion||Assets.hasAnim('hall-trex-cheer','celebrate')?0:Math.round(Math.abs(Math.sin(t*0.09))*-8);
-  var dx=384, dy=GROUND-DINO_H+hop;
-  if(!Assets.drawSprite(ctx,'hall-trex-cheer','celebrate',t,dx,dy,DINO_W,DINO_H)){
-  drawArt('trex',boardDino,dx,dy,DINO_W,DINO_H,function(){drawDino(dx,dy,0,false,hop<0,true);});
+  // Hall of Fame uses the SAME 64px character atlas as gameplay.
+  // Its authored celebrate and rawr frames preserve T-Rex's silhouette and face.
+  // Draw larger than the gameplay sprite for a readable mobile victory pose.
+  var cheerT=reduceMotion?0:Math.floor(t)%90;
+  var cheerAnim=cheerT>=56&&cheerT<78?'rawr':'celebrate';
+  var cheerFrame=cheerAnim==='rawr'?cheerT-56:cheerT%40;
+  var cheerW=42,cheerH=58,cheerX=378,cheerY=GROUND-cheerH;
+  if(!Assets.drawSprite(ctx,'trex',cheerAnim,cheerFrame,cheerX,cheerY,cheerW,cheerH)){
+    drawDino(cheerX,cheerY,0,false,false,true);
   }
-  boardDino.update();
 
   ctx.font='bold 9px monospace';
   var cta=boardFromDead?'TAP TO PLAY AGAIN':'TAP TO GO BACK', cw=ctx.measureText(cta).width+16;
