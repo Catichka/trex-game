@@ -316,7 +316,6 @@ Assets.defineSprite('mama-stego','assets/characters/mama-stego/mama_stego_atlas'
 // Volcano meteor (encounters.js), ChatGPT atlas PR #29: fall 48x48, impact 64x48,
 // crater 48x16, warning 48x12; frames and pivots come from the JSON.
 Assets.defineSprite('hall-torch','assets/ui/hall-torch',{frameWidth:32,frameHeight:48,anchor:[16,48],animations:{idle:{row:0,frames:4,fps:9,loop:true}}});
-Assets.defineSprite('hall-trex-cheer','assets/ui/hall-trex-cheer',{frameWidth:48,frameHeight:48,anchor:[24,48],animations:{celebrate:{row:0,frames:6,fps:9,loop:true}}});
 Assets.defineSprite('meteor','assets/effects/meteor/meteor_atlas',{frameWidth:48, frameHeight:48, animations:{}});
 Assets.defineSprite('stegosaurus','assets/characters/stegosaurus/stegosaurus',{
   frameWidth:48, frameHeight:32,
@@ -1440,7 +1439,6 @@ var BOARD_STYLE=[
   {stone:'#6a7062',dark:'#454b40',lite:'#8a917c',rank:'#b8c0a4',accent:'#c8ff70',fx:'firefly'},   // weathered stone
   {stone:'#545078',dark:'#343050',lite:'#7872a6',rank:'#b0aaf0',accent:'#8ff0ff',fx:'sparkle'}    // crystal
 ];
-var boardDino=new Animator('celebrate');
 var MON_X=W/2-110, MON_W=220, MON_TOP=2, MON_ROWS=36, ROW_STEP=14.6, MON_BOT=182;
 
 function drawBoardFx(fx,t){
@@ -1643,14 +1641,17 @@ function drawBoard() {
     }
   }
 
-  // Cheering T-Rex beside the monument (clear of the JUMP button)
-  // The cheer sheet bounces in its own frames; only the fallback needs a code hop.
-  var hop=reduceMotion||Assets.hasAnim('hall-trex-cheer','celebrate')?0:Math.round(Math.abs(Math.sin(t*0.09))*-8);
-  var dx=384, dy=GROUND-DINO_H+hop;
-  if(!Assets.drawSprite(ctx,'hall-trex-cheer','celebrate',t,dx,dy,DINO_W,DINO_H)){
-  drawArt('trex',boardDino,dx,dy,DINO_W,DINO_H,function(){drawDino(dx,dy,0,false,hop<0,true);});
+  // Hall of Fame uses the SAME 64px character atlas as gameplay: two celebrate
+  // loops, then a RAWR. Drawn 1.5x (anchored at its feet) so it reads on a phone.
+  var cheerT=reduceMotion?0:Math.floor(t)%120;
+  var cheerAnim=cheerT<80?'celebrate':'rawr';
+  var cheerFrame=cheerAnim==='rawr'?cheerT-80:cheerT%40;
+  var CHEER_SCALE=1.5, cheerX=407, cheerY=GROUND;
+  ctx.save(); ctx.translate(cheerX,cheerY); ctx.scale(CHEER_SCALE,CHEER_SCALE);
+  if(!Assets.drawSprite(ctx,'trex',cheerAnim,cheerFrame,-DINO_W/2,-DINO_H,DINO_W,DINO_H)){
+    drawDino(-DINO_W/2,-DINO_H,0,false,false,true);
   }
-  boardDino.update();
+  ctx.restore();
 
   ctx.font='bold 9px monospace';
   var cta=boardFromDead?'TAP TO PLAY AGAIN':'TAP TO GO BACK', cw=ctx.measureText(cta).width+16;
