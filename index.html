@@ -97,6 +97,21 @@ body.portrait .jump { flex: 1; font-size: 26px; }
 body.landscape .pb { opacity: 0.72; font-size: 15px; width: 17vmin; height: 17vmin; min-width: 64px; min-height: 64px; }
 body.landscape .jump { width: 22vmin; height: 22vmin; min-width: 80px; min-height: 80px; font-size: 18px; }
 
+/* Title screen: Cat's approved artwork (assets/ui/title-screen.png), shown as-is over
+   the canvas at its full resolution. Taps fall through to the canvas (see TITLE_HIT). */
+#title { display: none; position: fixed; pointer-events: none; z-index: 2; }
+body.title #title { display: block; }
+body.title #pad { display: none; }
+#title img { display: block; width: 100%; height: 100%; }
+#title.px img { image-rendering: pixelated; image-rendering: crisp-edges; }
+#titleMute { display: none; position: absolute; }
+#title.muted #titleMute { display: block; }
+#titleMute::before, #titleMute::after {
+  content: ''; position: absolute; left: 50%; top: 10%; width: 12%; height: 80%; margin-left: -6%;
+  background: #e8241c; border: 2px solid #3a0a06; border-radius: 3px; transform: rotate(45deg);
+}
+#titleMute::after { transform: rotate(-45deg); }
+
 /* Portrait phones: ask to rotate (the game pauses underneath). */
 #rotate {
   display: none; position: fixed; inset: 0; z-index: 9;
@@ -118,6 +133,7 @@ body.portrait.askrotate #rotate { display: flex; }
 </head>
 <body>
 <canvas id="c"></canvas>
+<div id="title"><img id="titleArt" src="assets/ui/title-screen.png" alt="The T-Rex Game: press start"><div id="titleMute"></div></div>
 
 <div id="pad">
   <button id="bJump" class="pb jump" tabindex="-1"><img src="assets/ui/jump_64.png" alt=""><span>JUMP</span></button>

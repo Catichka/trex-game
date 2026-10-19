@@ -91,6 +91,31 @@ function goLandscape(){
 }
 var PAD=/[?&]pad\b/.test(location.search)||('ontouchstart' in window)||
         (window.matchMedia&&matchMedia('(pointer:coarse)').matches);
+// Title screen artwork (1942x809, the canvas's 2.4:1 shape) sits over the canvas.
+var TITLE_W=1942, TITLE_H=809, titleBox=document.getElementById('title'), titleArt=document.getElementById('titleArt');
+var titleReady=titleArt.complete&&titleArt.naturalWidth>0;
+titleArt.addEventListener('load',function(){ titleReady=true; });
+titleArt.addEventListener('error',function(){ titleReady=false; }); // fall back to the drawn title
+function placeTitle(){
+  var r=canvas.getBoundingClientRect();
+  titleBox.style.left=r.left+'px'; titleBox.style.top=r.top+'px';
+  titleBox.style.width=r.width+'px'; titleBox.style.height=r.height+'px';
+  // Pixel-sharp when enlarged; smooth when shrunk so the lettering stays readable.
+  titleBox.classList.toggle('px',r.width*(window.devicePixelRatio||1)>TITLE_W);
+  var m=TITLE_HIT.speaker;
+  titleMute.style.left=(m[0]/TITLE_W*100)+'%'; titleMute.style.top=(m[1]/TITLE_H*100)+'%';
+  titleMute.style.width=((m[2]-m[0])/TITLE_W*100)+'%'; titleMute.style.height=((m[3]-m[1])/TITLE_H*100)+'%';
+}
+// Button areas in artwork pixels [left, top, right, bottom].
+var TITLE_HIT={ start:[455,640,972,758], board:[978,640,1224,758], speaker:[1228,640,1345,758] };
+var titleMute=document.getElementById('titleMute');
+function titleButtonAt(ex,ey){
+  var r=canvas.getBoundingClientRect();
+  var ix=(ex-r.left)/r.width*TITLE_W, iy=(ey-r.top)/r.height*TITLE_H;
+  for(var k in TITLE_HIT){ var b=TITLE_HIT[k]; if(ix>=b[0]&&ix<=b[2]&&iy>=b[1]&&iy<=b[3])return k; }
+  return null;
+}
+function showTitleArt(){ return state===ST.TITLE&&titleReady; }
 function resize() {
   var pad=document.getElementById('pad'), vw=window.innerWidth, vh=window.innerHeight;
   var portrait=PAD&&vh>vw;
@@ -101,6 +126,7 @@ function resize() {
   canvas.style.height = Math.floor(H * s) + 'px';
   canvas.width = W; canvas.height = H;
   ctx.imageSmoothingEnabled = false;
+  placeTitle();
 }
 window.addEventListener('resize', resize);
 resize();
@@ -1225,6 +1251,7 @@ function isOnHallOfFameBtn(ex,ey) {
   return cx>W/2-60&&cx<W/2+60&&cy>H/2+56&&cy<H/2+74;
 }
 
+function startTitleGame(){ state=ST.PLAY; resetLevel(); startMusic(levelIdx); }
 function doTap(ex,ey) {
   goLandscape();
   getAC().state==='suspended'&&getAC().resume();
@@ -1232,6 +1259,14 @@ function doTap(ex,ey) {
     if(performance.now()-boardShownAt<1500)return; // a mashed JUMP from the run doesn't skip it
     if(boardFromDead){ boardFromDead=false; state=ST.PLAY; resetLevel(); startMusic(levelIdx); return; }
     state=ST.TITLE; return;
+  }
+  if(showTitleArt()){
+    // Keyboard (no position) starts; taps only act on the artwork's buttons.
+    var btn=ex===undefined?'start':titleButtonAt(ex,ey);
+    if(btn==='board'){ boardFromDead=false; state=ST.BOARD; loadBoard(); }
+    else if(btn==='speaker'){ Sound.toggleMute(); }
+    else if(btn==='start'){ if(!playerName){ askName(startTitleGame); } else { startTitleGame(); } }
+    return;
   }
   if((state===ST.TITLE||state===ST.DEAD)&&ex!==undefined&&isOnMusicTestBtn(ex,ey)){ toggleMusicTest(); return; }
   if(state===ST.TITLE){
@@ -1294,6 +1329,7 @@ canvas.addEventListener('mouseup',function(e){
 });
 document.addEventListener('keydown',function(e){
   if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();if(state===ST.PLAY)player.jump();else doTap();}
+  if(e.code==='Enter'&&state===ST.TITLE&&document.getElementById('nameBox').style.display!=='flex')doTap();
   if(e.code==='KeyM')Sound.toggleMute();
   if(e.code==='KeyT')toggleMusicTest();
   if(e.code==='KeyH'&&state===ST.TITLE){boardFromDead=false;state=ST.BOARD;loadBoard();}
@@ -1680,6 +1716,9 @@ function loop(now) {
 function step() {
   var th=THEMES[levelIdx];
 
+  var artOn=showTitleArt();
+  document.body.classList.toggle('title',artOn);
+  if(artOn){ titleBox.classList.toggle('muted',Sound.isMuted()); R(0,0,W,H,'#000'); return; }
   if(state===ST.TITLE){drawTitle();return;}
 
   drawBg(scroll,th);
