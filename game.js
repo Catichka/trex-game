@@ -1751,6 +1751,7 @@ function drawBoardArt(){
     R(p[0]-r,p[1],r*2+1,1,'#fff6c0'); R(p[0],p[1]-r,1,r*2+1,'#fff6c0'); R(p[0],p[1],1,1,'#ffffff');
   }
   var l=HOF_ART_LIST, rh=(l[3]-l[1])/10;
+  R(l[0],l[1],l[2]-l[0],l[3]-l[1],'#211c16'); // the whole row area is always ours: no art shows through
   ctx.textAlign='center'; ctx.font='9px monospace';
   if(!boardReady){ ctx.fillStyle='#ddd'; ctx.fillText('Loading...',242,118); }
   else if(boardError){ ctx.fillStyle='#ff9a9a'; ctx.fillText("Couldn't reach the board.",242,110); ctx.fillStyle='#ddd'; ctx.fillText('Tap here to try again.',242,123); }
@@ -1770,6 +1771,7 @@ function drawBoardArt(){
     ctx.textAlign='right'; ctx.fillText(fmtScore(s.score),316,cy+3);
   });
   // BACK TO MENU, in the art's button
+  R(185,173,110,14,'#392d20'); // the button face is ours too
   ctx.fillStyle='#ffc21e'; ctx.strokeStyle='#3a1a00';
   ctx.beginPath(); ctx.moveTo(190,179.5); ctx.lineTo(197,174); ctx.lineTo(197,177); ctx.lineTo(204,177); ctx.lineTo(204,182); ctx.lineTo(197,182); ctx.lineTo(197,185); ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.textAlign='center'; bigText('BACK TO MENU',248,184,11,'#ffc21e');
