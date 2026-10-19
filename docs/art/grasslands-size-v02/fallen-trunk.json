@@ -1,0 +1,29 @@
+{
+  "name": "fallen-trunk",
+  "image": "fallen-trunk.png",
+  "frame_size": [
+    54,
+    24
+  ],
+  "pivot": [
+    27,
+    23
+  ],
+  "animations": {
+    "idle": {
+      "fps": 1,
+      "loop": true,
+      "frames": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 54,
+          "h": 24
+        }
+      ]
+    }
+  },
+  "ground_y": 152,
+  "rendering": "nearest-neighbor",
+  "scale": 0.6666666666666666
+}
