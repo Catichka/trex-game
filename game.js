@@ -22,7 +22,10 @@ function sbFetch(path, opts) {
   opts = opts || {};
   var ctl = window.AbortController ? new AbortController() : null;
   if (ctl) { opts.signal = ctl.signal; setTimeout(function(){ ctl.abort(); }, LB_TIMEOUT); }
-  opts.headers = SB_HDR;
+  var h = {}, k;
+  for (k in SB_HDR) h[k] = SB_HDR[k];
+  for (k in (opts.headers || {})) h[k] = opts.headers[k];
+  opts.headers = h;
   return fetch(SB_URL + '/rest/v1/' + path, opts).then(function(r){
     if (!r.ok) throw new Error('leaderboard HTTP ' + r.status);
     return r;
@@ -1452,10 +1455,19 @@ placeOver();
 function lastBoardName(){ try{ return localStorage.getItem('trex-lb-name')||''; }catch(e){ return ''; } }
 function fmtScore(n){ return String(Math.floor(n)).replace(/\B(?=(\d{3})+(?!\d))/g,','); }
 
+// A random id for this run's score. The server keeps one row per id, so a retry
+// after a lost reply can't add the score twice.
+function runId(){
+  if(window.crypto&&crypto.randomUUID)return crypto.randomUUID();
+  var b=new Uint8Array(16); crypto.getRandomValues(b); b[6]=b[6]&15|64; b[8]=b[8]&63|128;
+  var h=[].map.call(b,function(v){ return (v+256).toString(16).slice(1); }).join('');
+  return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+}
 function startOver(){
   over={ shownAt:performance.now(), qualifies:null, saving:false, saved:false, err:false, savedName:'',
-          tried:[], firstTry:0, warn:null };
+          runId:runId(), warn:null };
   overName.value=overDraft||lastBoardName()||playerName||'';
+  overName.readOnly=false;
   overSave.disabled=false; overSave.textContent='SAVE SCORE';
   loadOverBoard();
 }
@@ -1479,10 +1491,10 @@ function saveOverScore(){
   var o=over;
   if(!o||!o.qualifies||o.saving||o.saved)return; // one save at a time, one row per run
   var n=(overName.value.trim()||'Dino Kid').substring(0,12); // same rules as the start prompt
-  var sc=Math.floor(lastScore), retry=o.tried.length>0;
-  overName.value=n; o.saving=true; o.err=false;
-  if(o.tried.indexOf(n)<0)o.tried.push(n);
-  if(!o.firstTry)o.firstTry=Date.now();
+  var sc=Math.floor(lastScore);
+  // After the first attempt the name is locked: that row may already be stored,
+  // and a retry must send exactly the same row.
+  overName.value=n; overName.readOnly=true; o.saving=true; o.err=false;
   overSave.disabled=true; overSave.textContent='SAVING...';
   function done(){
     if(o!==over)return;
@@ -1498,15 +1510,11 @@ function saveOverScore(){
     o.saving=false; o.err=true; // keep the typed name; the button becomes a retry
     overSave.disabled=false; overSave.textContent='TRY AGAIN';
   }
-  function post(){ return sbFetch('scores',{ method:'POST', body:JSON.stringify({ name:n, score:sc }) }); }
-  // A failed attempt may still have reached the server (only the reply was lost),
-  // so a retry first looks for this run's row: same score, a name tried this run,
-  // added since the first attempt (10 min of slack for clock differences).
-  var check=!retry?Promise.resolve(false):sbFetch('scores?select=id&limit=1&score=eq.'+sc+
-      '&name=in.('+o.tried.map(function(t){ return '"'+t.replace(/["\\]/g,'')+'"'; }).map(encodeURIComponent).join(',')+')'+
-      '&created_at=gte.'+encodeURIComponent(new Date(o.firstTry-600000).toISOString()))
-    .then(function(r){ return r.json(); }).then(function(d){ return Array.isArray(d)&&d.length>0; });
-  check.then(function(already){ return already?null:post(); }).then(done,failed);
+  // A retry re-sends the same run id, so if the first save reached the server
+  // and only its reply was lost, the server ignores the copy.
+  sbFetch('scores?on_conflict=client_id',{ method:'POST',
+      headers:{ 'Prefer':'resolution=ignore-duplicates,return=minimal' },
+      body:JSON.stringify({ name:n, score:sc, client_id:o.runId }) }).then(done,failed);
 }
 overSave.addEventListener('click',saveOverScore);
 // On touch screens the keyboard covers the bottom of a sideways phone, so while
