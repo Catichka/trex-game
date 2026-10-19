@@ -1439,7 +1439,6 @@ var BOARD_STYLE=[
   {stone:'#6a7062',dark:'#454b40',lite:'#8a917c',rank:'#b8c0a4',accent:'#c8ff70',fx:'firefly'},   // weathered stone
   {stone:'#545078',dark:'#343050',lite:'#7872a6',rank:'#b0aaf0',accent:'#8ff0ff',fx:'sparkle'}    // crystal
 ];
-var boardDino=new Animator('celebrate');
 var MON_X=W/2-110, MON_W=220, MON_TOP=2, MON_ROWS=36, ROW_STEP=14.6, MON_BOT=182;
 
 function drawBoardFx(fx,t){
@@ -1642,16 +1641,17 @@ function drawBoard() {
     }
   }
 
-  // Hall of Fame uses the SAME 64px character atlas as gameplay.
-  // Its authored celebrate and rawr frames preserve T-Rex's silhouette and face.
-  // Draw larger than the gameplay sprite for a readable mobile victory pose.
-  var cheerT=reduceMotion?0:Math.floor(t)%90;
-  var cheerAnim=cheerT>=56&&cheerT<78?'rawr':'celebrate';
-  var cheerFrame=cheerAnim==='rawr'?cheerT-56:cheerT%40;
-  var cheerW=42,cheerH=58,cheerX=378,cheerY=GROUND-cheerH;
-  if(!Assets.drawSprite(ctx,'trex',cheerAnim,cheerFrame,cheerX,cheerY,cheerW,cheerH)){
-    drawDino(cheerX,cheerY,0,false,false,true);
+  // Hall of Fame uses the SAME 64px character atlas as gameplay: two celebrate
+  // loops, then a RAWR. Drawn 1.5x (anchored at its feet) so it reads on a phone.
+  var cheerT=reduceMotion?0:Math.floor(t)%120;
+  var cheerAnim=cheerT<80?'celebrate':'rawr';
+  var cheerFrame=cheerAnim==='rawr'?cheerT-80:cheerT%40;
+  var CHEER_SCALE=1.5, cheerX=407, cheerY=GROUND;
+  ctx.save(); ctx.translate(cheerX,cheerY); ctx.scale(CHEER_SCALE,CHEER_SCALE);
+  if(!Assets.drawSprite(ctx,'trex',cheerAnim,cheerFrame,-DINO_W/2,-DINO_H,DINO_W,DINO_H)){
+    drawDino(-DINO_W/2,-DINO_H,0,false,false,true);
   }
+  ctx.restore();
 
   ctx.font='bold 9px monospace';
   var cta=boardFromDead?'TAP TO PLAY AGAIN':'TAP TO GO BACK', cw=ctx.measureText(cta).width+16;
