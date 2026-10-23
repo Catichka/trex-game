@@ -153,11 +153,50 @@ body.portrait.askrotate #rotate { display: flex; }
 #rotate .phone::after { content: '🦖'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 24px; }
 @keyframes turn { 0%, 25% { transform: rotate(0); } 55%, 85% { transform: rotate(-90deg); } 100% { transform: rotate(0); } }
 #rotateAnyway { margin-top: 26px; background: none; border: 1px solid #666; color: #aaa; font-family: monospace; font-size: 12px; padding: 8px 14px; touch-action: auto; }
+/* "Get the app" card (install.js): phones on the title screen, every visit until installed. */
+#install { display: none; }
+body.pad.title #install.on {
+  display: flex; align-items: center; gap: 10px;
+  position: fixed; z-index: 5; left: 50%; transform: translateX(-50%);
+  top: calc(6px + env(safe-area-inset-top)); width: max-content; max-width: calc(100vw - 24px);
+  padding: 7px 8px 7px 12px; border: 2px solid #ffc21e; border-radius: 10px;
+  background: rgba(20,14,8,0.92); color: #fff4d8; font: 12px/1.3 monospace;
+  box-shadow: 0 3px 0 rgba(0,0,0,0.45); touch-action: manipulation;
+}
+#install .dino { font-size: 22px; }
+#install .txt b { color: #ffc21e; }
+#install .ttl { font-weight: bold; font-size: 13px; color: #ffc21e; }
+#install .share {
+  display: inline-block; width: 10px; height: 12px; vertical-align: -2px; margin: 0 1px;
+  border: 2px solid #4da3ff; border-top: none; border-radius: 0 0 2px 2px; position: relative;
+}
+#install .share::before { content: ''; position: absolute; left: 2px; top: -6px; width: 2px; height: 10px; background: #4da3ff; }
+#install .share::after {
+  content: ''; position: absolute; left: 0; top: -6px; width: 4px; height: 4px; margin-left: 0;
+  border-left: 2px solid #4da3ff; border-top: 2px solid #4da3ff; transform: translateX(1px) rotate(45deg);
+}
+#installBtn {
+  display: none; font: bold 13px monospace; padding: 8px 12px; border: 2px solid #3a1a00; border-radius: 6px;
+  background: #ffc21e; color: #3a1a00; cursor: pointer; touch-action: manipulation;
+}
+#install.native #installBtn { display: block; }
+#install.native #installHow { display: none; }
+#installX {
+  font: bold 16px monospace; width: 32px; height: 32px; flex: none; padding: 0;
+  background: none; border: 1px solid #8a7040; border-radius: 6px; color: #fff4d8; cursor: pointer; touch-action: manipulation;
+}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div id="title"><img id="titleArt" src="assets/ui/title-screen.png" alt="T-Rex Run!: press start"><div id="titleMute"></div></div>
+
+<div id="install" role="dialog" aria-label="Get the T-Rex Run app">
+  <span class="dino">🦖</span>
+  <div class="txt"><div class="ttl">GET THE T-REX RUN APP!</div><div id="installHow"></div></div>
+  <button id="installBtn">INSTALL</button>
+  <button id="installX" aria-label="Not now">&#10005;</button>
+</div>
 
 <div id="pad">
   <button id="bJump" class="pb jump" tabindex="-1"><img src="assets/ui/jump_64.png" alt=""><span>JUMP</span></button>
@@ -199,5 +238,6 @@ if (window.Sound) Sound.scoresReady();
 <script src="boss.js"></script>
 <script src="encounters.js"></script>
 <script src="game.js"></script>
+<script src="install.js"></script>
 </body>
 </html>

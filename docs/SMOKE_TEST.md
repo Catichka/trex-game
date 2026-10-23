@@ -46,3 +46,4 @@ Console shortcuts for testers: `levelIdx=3` before starting jumps to Swamp; `tic
 ## Mobile
 - [ ] Canvas fills the screen without blurring; RAWR button reachable with a thumb.
 - [ ] Installed as a home-screen app it loads the latest version (bump `CACHE` in `sw.js` each release).
+- [ ] Phone browser (not installed): the "GET THE T-REX RUN APP!" card shows on the title screen every visit; Android has INSTALL, iPhone shows Share then Add to Home Screen; ✕ hides it until the next visit; never shows in the installed app or during play.
