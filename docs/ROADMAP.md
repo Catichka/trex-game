@@ -4,6 +4,29 @@ Status: **agreed plan** (Cat approved the way forward on 2026-10-18). Updated 20
 Engine review behind this plan: [`docs/reviews/2026-10-18-architecture-review.md`](reviews/2026-10-18-architecture-review.md).
 How we work together: [`docs/COLLABORATION.md`](COLLABORATION.md).
 
+## Implementation checkpoint — 27 October 2026 (checked against GitHub PR states)
+
+**Current product title: T-Rex Run!** The sections below remain the **18 October baseline/plan**, retained for decision history; do **not** read their present-tense bug lists or milestone statuses as a description of today's `main`. The current implementation has moved significantly beyond that baseline. Only Cat approves merges to `main`; ChatGPT owns art/design/specs, Claude owns engineering/integration/testing.
+
+| Milestone / area | Verified GitHub status | Follow-up |
+| --- | --- | --- |
+| M0–M1 engine/baseline | Merged PRs [#1](https://github.com/Catichka/trex-game/pull/1) and [#7](https://github.com/Catichka/trex-game/pull/7) | Swamp → Caverns progression and fixed timestep implemented; retain regression tests |
+| M2 RAWR/boss design | [#6](https://github.com/Catichka/trex-game/pull/6) remains **open** | Its speculative placement/hit-count decisions are not final approvals; compare with shipped prototype |
+| M3 boss prototype | [#8](https://github.com/Catichka/trex-game/pull/8) **merged** | `?boss` playable placeholder; final boss placement/art/hit count require Cat's gameplay feedback |
+| M4 visual controls/RAWR | First mobile icons merged [#24](https://github.com/Catichka/trex-game/pull/24); revised production icon art [#58](https://github.com/Catichka/trex-game/pull/58) **open** | Claude to check BITE vs RAWR at actual 1× landscape-phone size, supply 480×200 and 3× screenshots before Cat approval. Draft [#17](https://github.com/Catichka/trex-game/pull/17) is superseded |
+| M5 leaderboard/game-over | Hall of Fame and death-screen redesign merged [#38](https://github.com/Catichka/trex-game/pull/38), [#44](https://github.com/Catichka/trex-game/pull/44), [#46](https://github.com/Catichka/trex-game/pull/46), [#48](https://github.com/Catichka/trex-game/pull/48) | Continue security/abuse and offline regression checks; don't infer backend hardening from visual redesign |
+| M6 title/UI | Approved art + interactive title merged [#42](https://github.com/Catichka/trex-game/pull/42), [#43](https://github.com/Catichka/trex-game/pull/43); T-Rex Run! logo [#55](https://github.com/Catichka/trex-game/pull/55)/[#56](https://github.com/Catichka/trex-game/pull/56) merged | Phone install prompt merged [#57](https://github.com/Catichka/trex-game/pull/57) on 23 Oct; test real phone |
+| M7 world identity/balancing | Volcano art/meteor [#30](https://github.com/Catichka/trex-game/pull/30)/[#34](https://github.com/Catichka/trex-game/pull/34); biome-specific obstacles [#52](https://github.com/Catichka/trex-game/pull/52); smaller grasslands trees [#54](https://github.com/Catichka/trex-game/pull/54) **merged** | Preserve Cat's explicit **no changes to Volcano** request during subsequent biome polish; further balance only after playtesting |
+| Music | Score/design [#9](https://github.com/Catichka/trex-game/pull/9) and audio alpha [#31](https://github.com/Catichka/trex-game/pull/31) merged | Grasslands V4 was approved as a compositional benchmark; #31 subsequently installed Folk Dance in D for Grasslands and Baroque for Caverns. Don't assume the V4 synthesizer is the currently playing track |
+| Art documentation | [#5](https://github.com/Catichka/trex-game/pull/5) art bible update remains **open** | The `main` art bible is v0.1 and incorrectly names retired Forest/Ice worlds; #5 is technically reviewed, pending Cat approval |
+| M8 release | Ongoing | Use [smoke checklist](https://github.com/Catichka/trex-game/blob/main/docs/SMOKE_TEST.md), including desktop/phone, music, mobile install, gameplay, scoreboard |
+
+**Immediate collaboration queue:** (1) Claude: provide actual phone 1×/3× readability evidence for art PR #58, with no premature merge. (2) Cat: playtest boss before locking its final art, Desert placement or number of hits. (3) ChatGPT: only adjust icons after screenshots demonstrate a real ambiguity; keep other art unchanged unless requested. (4) Retire stale open docs/design PRs #3/#5/#6 through Cat's normal approval process; do not silently merge or close them.
+
+**Known documentation debt:** [Issue #45](https://github.com/Catichka/trex-game/issues/45) is still reported open despite merged [#46](https://github.com/Catichka/trex-game/pull/46) claiming to close it; reconcile only after verifying the asset in `main`. The original roadmap below also predates major changes in mobile controls, UI and music.
+
+---
+
 ## Collaboration rules
 - Roles: **Cat** = creative direction, gameplay feedback, final approval. **ChatGPT** = pixel art, animation, visual design, game design and gameplay specs. **Claude** = gameplay engineering, integration, testing, deployment.
 - Work on topic branches and open pull requests; no direct commits to `main` for collaborative changes. Only Cat approves merges to `main`.
