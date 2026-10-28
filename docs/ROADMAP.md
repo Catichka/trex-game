@@ -23,7 +23,7 @@ How we work together: [`docs/COLLABORATION.md`](COLLABORATION.md).
 
 **Immediate collaboration queue:** (1) Claude: provide actual phone 1×/3× readability evidence for art PR #58, with no premature merge. (2) Cat: playtest boss before locking its final art, Desert placement or number of hits. (3) ChatGPT: only adjust icons after screenshots demonstrate a real ambiguity; keep other art unchanged unless requested. (4) Retire stale open docs/design PRs #3/#5/#6 through Cat's normal approval process; do not silently merge or close them.
 
-**Known documentation debt:** [Issue #45](https://github.com/Catichka/trex-game/issues/45) is still reported open despite merged [#46](https://github.com/Catichka/trex-game/pull/46) claiming to close it; reconcile only after verifying the asset in `main`. The original roadmap below also predates major changes in mobile controls, UI and music.
+**Documentation reconciliation — 29 October 2026:** [Issue #45](https://github.com/Catichka/trex-game/issues/45) is **closed as completed** (27 Oct) after direct verification of the seated dizzy T-Rex sprite, its four-frame metadata and manifest registration from merged [#46](https://github.com/Catichka/trex-game/pull/46). [Issue #2](https://github.com/Catichka/trex-game/issues/2) remains open as a historical art backlog, with a 28 Oct reconciliation comment: do not treat its original unchecked prototype requests as missing production art. The original roadmap below predates major changes in mobile controls, UI and music.
 
 ---
 
