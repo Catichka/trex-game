@@ -4,7 +4,8 @@
 // ?boss (or #boss) also starts it 3 s into any level. One cycle: run in ahead of the
 // T-Rex → telegraph → drop one obstacle → cloak (footprints + eye glint stay
 // visible). Small RAWR reveals it briefly, big RAWR stuns it; a stunned boss
-// drifts back into the T-Rex and is eaten on contact (no NOM button).
+// drifts back to the T-Rex's jaws and one BITE lands (Cat, 2026-11-03). After a
+// bite it runs ahead again and repeats its pattern. The 5th bite eats it.
 // Missing the window just repeats the cycle. Art: ChatGPT's sprite sheet
 // (assets/characters/phantom-raptor); the pixel drawing below is the fallback.
 //
@@ -17,7 +18,8 @@ var Boss = (function () {
   var W_ = 40 * U, H_ = 30 * U;  // gameplay box
   var LEAD = 200;                // px ahead of the T-Rex while running
   var RAWR_RANGE = 260;          // boss box left edge within this of the T-Rex
-  var TELEGRAPH = 45, CLOAK_FOR = 300, REVEAL = 72, STUN = 90, SCORE = 200;
+  var TELEGRAPH = 45, CLOAK_FOR = 300, REVEAL = 72, STUN = 110, SCORE = 200;
+  var BITES = 5, BITE_SCORE = 40, GULP = 50; // bites to win, points per bite, ticks to swallow
 
   var b = null, done = false, prints = [];
 
@@ -34,7 +36,7 @@ var Boss = (function () {
   // The real encounter: the end of Caverns (game.js). ?boss also starts it early.
   function startNow() {
     if (done || b) return;
-    b = { x: W + 20, y: GROUND - H_, state: 'enter', t: 0, dur: 80, alpha: 1, reveal: 0, f: 0, fromX: 0 };
+    b = { x: W + 20, y: GROUND - H_, state: 'enter', t: 0, dur: 80, alpha: 1, reveal: 0, f: 0, fromX: 0, hp: BITES, hurt: 0 };
     // Boss theme takes over from the world music (old music mode: just a jingle).
     if (MUSIC_V1) sfxLevelUp(); else playBossMusic();
     addPopup(W / 2, 60, 'PHANTOM RAPTOR!', '#c8a0ff');
@@ -57,7 +59,7 @@ var Boss = (function () {
   function onRawr(big) {
     if (!b) return;
     var st = b.state;
-    if (st === 'enter' || st === 'stun' || st === 'recover' || st === 'defeat') return;
+    if (st === 'enter' || st === 'stun' || st === 'recover' || st === 'eaten') return;
     if (b.x - (player.x + DINO_W) > RAWR_RANGE) return;
     if (big) { b.fromX = b.x; set('stun', STUN); b.alpha = 1; addPopup(b.x + W_ / 2, b.y - 6, 'STUNNED!', '#ffff44'); }
     else b.reveal = REVEAL;
@@ -67,6 +69,7 @@ var Boss = (function () {
     if (!b) return;
     b.t++; b.f++; b.spd = spd;
     if (b.reveal > 0) b.reveal--;
+    if (b.hurt > 0) b.hurt--;
     var p;
     switch (b.state) {
       case 'enter':
@@ -103,9 +106,8 @@ var Boss = (function () {
         b.x = b.fromX + (homeX() - b.fromX) * p;
         if (p >= 1) set('cloak', CLOAK_FOR);
         break;
-      case 'defeat':
-        b.x -= spd + 1; b.y = Math.min(GROUND - H_ + 8, b.y + 0.5);
-        if (b.x < -60) { b = null; done = true; addPopup(W / 2, 60, 'PHANTOM RAPTOR DEFEATED!', '#88ff88'); }
+      case 'eaten': // swallowed whole: shrinks into the T-Rex's jaws
+        if (b.t >= b.dur) { b = null; done = true; addPopup(W / 2, 60, 'PHANTOM RAPTOR DEFEATED!', '#88ff88'); }
         break;
     }
     if (!b) return;
@@ -116,17 +118,28 @@ var Boss = (function () {
     prints = prints.filter(function (fp) { return fp.life > 0 && fp.x > -10; });
   }
 
-  // Contact NOM: only while stunned, scores once.
+  // BITE while it's stunned at the T-Rex's jaws: one bite per stun.
   function checkNom() {
-    if (!b || b.state !== 'stun') return;
-    if (!hits(player.hitX, player.hitY, player.hitW, player.hitH, b.x + 4, b.y + 4, W_ - 8, H_ - 4)) return;
-    player.triggerBite();
-    spawnEffect('fx-chomp', 'play', b.x, b.y, W_, H_, false, { center: true });
-    score += SCORE; addPopup(b.x + W_ / 2, b.y - 6, '+' + SCORE + ' NOM!', '#ffee44'); sfxBite(); sfxCatch();
-    set('defeat');
-    // Victory flourish, then the world's music comes back.
-    if (!MUSIC_V1) { Sound.fanfare(); playWorldMusic(levelIdx, { fade: 0.3, delay: 0.8 }); }
+    if (!b || b.state !== 'stun' || !player.biting) return;
+    if (!hits(player.biteX, player.biteY, player.biteW, player.biteH, b.x + 4, b.y + 4, W_ - 8, H_ - 4)) return;
+    b.hp--; b.hurt = 24; player.chomp(); sfxBite();
+    spawnEffect('fx-chomp', 'play', player.mouthX, player.mouthY, 24, 24, false, { center: true });
+    if (b.hp > 0) {
+      score += BITE_SCORE;
+      addPopup(b.x + W_ / 2, b.y - 6, 'BITE! ' + b.hp + ' TO GO', '#ffee44');
+      b.fromX = b.x; set('recover', 60); // back out in front, then the pattern again
+      return;
+    }
+    // Last bite: eaten like the other dinosaurs.
+    score += SCORE; addPopup(player.mouthX + 8, player.y - 10, '+' + SCORE + ' GULP!', '#88ff88'); sfxCatch();
+    b.fromX = b.x; set('eaten', GULP);
+    if (!MUSIC_V1) {
+      Sound.fanfare();
+      // The Caverns finale ends the level; a ?boss test fight returns to the world music.
+      if (levelIdx !== BOSS_LV) playWorldMusic(levelIdx, { fade: 0.3, delay: 0.8 });
+    }
   }
+  function hp() { return b ? b.hp : 0; }
 
   function drawRaptor(x, y, f, body, dark) {
     x = Math.round(x); y = Math.round(y);
@@ -152,12 +165,14 @@ var Boss = (function () {
     ctx.globalAlpha = 1;
     if (!b) return;
     var stunned = b.state === 'stun';
+    if (b.state === 'eaten') { drawEaten(); return; }
     // ChatGPT's sprite sheet when loaded. Its cloak frames fade by dithering
     // and keep the eye visible, so no extra alpha or eye glint is needed.
     var hidden = b.state === 'cloak' && b.reveal === 0;
-    var anim = hidden ? 'cloak' : b.state === 'telegraph' || stunned || b.state === 'defeat' ? b.state : 'run';
+    var anim = hidden ? 'cloak' : b.state === 'telegraph' || stunned ? b.state : 'run';
     var at = anim === 'run' || stunned ? b.f : b.t;
-    var art = Assets.drawSprite(ctx, 'phantom-raptor', anim, at, b.x, b.y, W_, H_, { flipX: true });
+    var flash = b.hurt > 0 && (b.hurt >> 2) % 2 === 0; // just bitten: blinks
+    var art = Assets.drawSprite(ctx, 'phantom-raptor', anim, at, b.x, b.y, W_, H_, { flipX: true, alpha: flash ? 0.35 : 1 });
     var headX = art ? b.x + 60 : b.x + 34 * U;
     if (!art) {
       ctx.globalAlpha = b.alpha;
@@ -193,8 +208,19 @@ var Boss = (function () {
     }
   }
 
+  // Last bite: the knocked-out raptor shrinks into the T-Rex's mouth.
+  function drawEaten() {
+    var p = Math.min(1, b.t / b.dur), e = p * p;
+    var cx = b.fromX + W_ / 2 + (player.mouthX + 10 - b.fromX - W_ / 2) * e;
+    var cy = GROUND + (player.mouthY + 14 - GROUND) * e, sc = 1 - 0.85 * e;
+    ctx.save(); ctx.translate(Math.round(cx), Math.round(cy)); ctx.scale(sc, sc);
+    if (!Assets.drawSprite(ctx, 'phantom-raptor', 'defeat', b.t, -W_ / 2, -H_, W_, H_, { flipX: true }))
+      drawRaptor(-W_ / 2, -H_, 0, '#b8a0ff', '#7a60d0');
+    ctx.restore();
+  }
+
   function info() { return b && { state: b.state, t: b.t, x: Math.round(b.x), alpha: +b.alpha.toFixed(2) }; }
 
-  return { enabled: ENABLED, reset: reset, active: active, startNow: startNow, isDone: function () { return done; }, info: info, maybeStart: maybeStart,
+  return { enabled: ENABLED, reset: reset, active: active, hp: hp, BITES: BITES, startNow: startNow, isDone: function () { return done; }, info: info, maybeStart: maybeStart,
            update: update, draw: draw, onRawr: onRawr, checkNom: checkNom };
 })();

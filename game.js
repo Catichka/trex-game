@@ -908,6 +908,8 @@ var PTERO_TOPS=[GROUND-64,GROUND-80,GROUND-96];
 // Swoopers dive at the T-Rex's head once they're close: jump and eat them, or
 // they hit you. Chance per pterodactyl rises with the level.
 var SWOOP_CHANCE=[0.3,0.35,0.4,0.45,0.5,0.5];
+// Endless Night keeps getting harder: +5% swoopers every 30 s, up to 85%.
+function swoopChance(){ var c=SWOOP_CHANCE[levelIdx]; return levelIdx===LAST_LV?Math.min(0.85,c+Math.floor(tick*STEP_MS/30000)*0.05):c; }
 var SWOOP_START=170;          // px ahead of the T-Rex where the dive begins
 var SWOOP_END=24;             // px ahead where it reaches head height
 var SWOOP_TOP=GROUND-36;      // box top at the bottom of the dive (head/neck height)
@@ -939,7 +941,7 @@ function spawnObs(th) {
     spawnT=Math.min(spawnT,0)-Math.round((cx-W-20)/Math.max(gameSpeed,1)); // room after a long set piece
     return;
   }
-  obstacles.push({kind:kind,x:W+20,y:oy,w:sz.w,h:sz.h,bitable:kind==='pt',harmless:!!(th.harmless&&th.harmless[kind]),wT:0,wF:0,flee:false,glide:false,swoop:kind==='pt'&&Math.random()<SWOOP_CHANCE[levelIdx],gT:60+Math.floor(Math.random()*90),anim:new Animator(kind==='pt'?'fly':'idle')});
+  obstacles.push({kind:kind,x:W+20,y:oy,w:sz.w,h:sz.h,bitable:kind==='pt',harmless:!!(th.harmless&&th.harmless[kind]),wT:0,wF:0,flee:false,glide:false,swoop:kind==='pt'&&Math.random()<swoopChance(),gT:60+Math.floor(Math.random()*90),anim:new Animator(kind==='pt'?'fly':'idle')});
   // Occasional paired ground obstacle
   if(!th.combos&&(kind==='cS'||kind==='st'||kind==='cG'||kind==='nS'||kind==='lS')&&Math.random()<0.28){
     var k2=th.obs.filter(function(t){return t!=='pt';})[0]||kind;
@@ -2026,7 +2028,9 @@ function step() {
     // Caverns: time's up, the Phantom Raptor arrives. Beat it to reach Endless Night.
     if(levelIdx===BOSS_LV&&played>=lvDur&&!exiting&&!Boss.active()&&!Boss.isDone()&&!Encounters.blocksPrey())Boss.startNow();
     drawHUD(th,Math.max(0,lvDur-played));
-    if(Boss.active()){R(W/2-52,17,104,11,'rgba(0,0,0,0.55)');ctx.textAlign='center';ctx.font='bold 8px monospace';ctx.fillStyle='#d8b8ff';ctx.fillText('BOSS: PHANTOM RAPTOR',W/2,25);ctx.textAlign='left';}
+    if(Boss.active()){R(W/2-52,17,104,18,'rgba(0,0,0,0.55)');ctx.textAlign='center';ctx.font='bold 8px monospace';ctx.fillStyle='#d8b8ff';ctx.fillText('BOSS: PHANTOM RAPTOR',W/2,25);ctx.textAlign='left';
+      // Bites left: one pip per bite still needed.
+      for(var hpI=0;hpI<Boss.BITES;hpI++){var hx=W/2-(Boss.BITES*8)/2+hpI*8+1;R(hx,28,6,4,hpI<Boss.hp()?'#c070ff':'#3a2a50');}}
 
     // Level complete check (not endless)
     if(levelIdx<LAST_LV&&played>=lvDur&&!exiting&&!Boss.active()&&(levelIdx!==BOSS_LV||Boss.isDone())&&!Encounters.blocksPrey()){ // let a chase finish first
