@@ -1,11 +1,12 @@
 'use strict';
 // ── Phantom Raptor boss (placeholder prototype) ──────────────────
-// Design: docs/design/M2_RAWR_PHANTOM_RAPTOR.md. Enabled with ?boss (or #boss), which
-// starts the encounter 3 s into any level. One cycle: run in ahead of the
+// Design: docs/design/M2_RAWR_PHANTOM_RAPTOR.md. Arrives when Caverns' timer runs out;
+// ?boss (or #boss) also starts it 3 s into any level. One cycle: run in ahead of the
 // T-Rex → telegraph → drop one obstacle → cloak (footprints + eye glint stay
 // visible). Small RAWR reveals it briefly, big RAWR stuns it; a stunned boss
 // drifts back into the T-Rex and is eaten on contact (no NOM button).
-// Missing the window just repeats the cycle. Placeholder pixel drawing only.
+// Missing the window just repeats the cycle. Art: ChatGPT's sprite sheet
+// (assets/characters/phantom-raptor); the pixel drawing below is the fallback.
 //
 // Uses game.js globals at runtime (player, obstacles, THEMES, levelIdx, ...).
 
@@ -151,15 +152,24 @@ var Boss = (function () {
     ctx.globalAlpha = 1;
     if (!b) return;
     var stunned = b.state === 'stun';
-    ctx.globalAlpha = b.alpha;
-    drawRaptor(b.x, b.y, stunned ? 0 : b.f, stunned ? '#b8a0ff' : '#5a40b8', stunned ? '#7a60d0' : '#2e2070');
-    ctx.globalAlpha = 1;
-    // The eye glint never disappears, even fully cloaked.
-    if (b.alpha < 0.6) R(b.x + 33 * U, b.y + U, 3 * U, 3 * U, '#ffe040');
+    // ChatGPT's sprite sheet when loaded. Its cloak frames fade by dithering
+    // and keep the eye visible, so no extra alpha or eye glint is needed.
+    var hidden = b.state === 'cloak' && b.reveal === 0;
+    var anim = hidden ? 'cloak' : b.state === 'telegraph' || stunned || b.state === 'defeat' ? b.state : 'run';
+    var at = anim === 'run' || stunned ? b.f : b.t;
+    var art = Assets.drawSprite(ctx, 'phantom-raptor', anim, at, b.x, b.y, W_, H_, { flipX: true });
+    var headX = art ? b.x + 60 : b.x + 34 * U;
+    if (!art) {
+      ctx.globalAlpha = b.alpha;
+      drawRaptor(b.x, b.y, stunned ? 0 : b.f, stunned ? '#b8a0ff' : '#5a40b8', stunned ? '#7a60d0' : '#2e2070');
+      ctx.globalAlpha = 1;
+      // The eye glint never disappears, even fully cloaked.
+      if (b.alpha < 0.6) R(b.x + 33 * U, b.y + U, 3 * U, 3 * U, '#ffe040');
+    }
     if (b.state === 'telegraph' && (b.t >> 2) % 2 === 0) {
-      R(b.x + 34 * U - 5, b.y - 18, 10, 13, '#ffff44');
+      R(headX - 5, b.y - 18, 10, 13, '#ffff44');
       ctx.fillStyle = '#c00000'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
-      ctx.fillText('!', b.x + 34 * U, b.y - 7); ctx.textAlign = 'left';
+      ctx.fillText('!', headX, b.y - 7); ctx.textAlign = 'left';
       // Ground-lane warning where the obstacle will land, arrows pointing at the T-Rex.
       var wx = Math.round(Math.min(W - 22, attackX(b.spd || 0)));
       R(wx - 1, GROUND + 2, 22, 9, '#1a1030');
@@ -169,7 +179,7 @@ var Boss = (function () {
         ctx.lineTo(wx + 8 + k * 10, GROUND + 9); ctx.fill();
       }
     }
-    if (stunned) {
+    if (stunned && !art) { // the sprite's stun frames have their own stars
       ctx.fillStyle = '#ffff00';
       for (var i = 0; i < 3; i++) {
         var a = b.f * 0.15 + i * 2.1;

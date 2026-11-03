@@ -361,6 +361,13 @@ Assets.defineSprite('pterodactyl','assets/characters/pterodactyl/pterodactyl_atl
 });
 // Caveman atlas (32x32 cells, faces right = running away from the T-Rex).
 // Anchor puts the feet (sprite row 29, x 16) on the bottom-centre of the 14x22 box.
+// Phantom Raptor boss (ChatGPT, 2026-11-03): 80x60 frames, drawn facing left,
+// flipped by boss.js so it runs ahead of the T-Rex facing the same way.
+Assets.defineSprite('phantom-raptor','assets/characters/phantom-raptor/phantom_raptor_atlas',{
+  frameWidth:80, frameHeight:60, anchor:[40,58],
+  animations:anims([['run',0,6,12],['telegraph',1,3,4,false],['cloak',2,4,8,false],['stun',3,4,8],['defeat',4,3,6,false]]),
+  fallbacks:{telegraph:'run',cloak:'run',stun:'run',defeat:'stun'}
+});
 Assets.defineSprite('caveman','assets/characters/caveman/caveman_atlas',{
   frameWidth:32, frameHeight:32, anchor:[16,30],
   animations:anims([['run',0,8,12],['idle',1,4,5],['jump',2,6,9,false],['hurt',3,3,7,false],
