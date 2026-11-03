@@ -63,7 +63,8 @@ var LEVEL_CFG = [
   { dur:90*1000,   speed:4.0, spawnI:82,  minSpawnI:65  }, // L2 Volcano      1:30
   { dur:2*60*1000, speed:4.5, spawnI:64,  minSpawnI:50  }, // L3 Desert       2 min
   { dur:2*60*1000, speed:5.0, spawnI:52,  minSpawnI:32  }, // L4 Swamp        2 min
-  { dur:Infinity,  speed:5.5, spawnI:46,  minSpawnI:28  }, // L5 Caverns      endless
+  { dur:2*60*1000, speed:5.5, spawnI:46,  minSpawnI:28  }, // L5 Caverns      2 min, then the Phantom Raptor
+  { dur:Infinity,  speed:6.0, spawnI:44,  minSpawnI:26  }, // L6 Endless Night endless
 ];
 
 // Touch devices get on-screen JUMP / BITE / RAWR buttons (#pad). In portrait
@@ -179,33 +180,73 @@ function sfxRawrBig() {
 // docs/audio/theme_scores.js. ?music=v1 plays the old one-note songs below
 // instead, for comparison.
 var MUSIC_V1 = /[?&]music=v1\b/.test(location.search);
-function worldTheme(lv) { return THEMES[Math.min(lv, THEMES.length - 1)].env; }
+function worldTheme(lv) { var th = THEMES[Math.min(lv, THEMES.length - 1)]; return th.score || th.env; }
 
-// Music alpha test: recorded tracks, played exactly as delivered (no tempo,
-// pitch or arrangement changes). Cat made them the default (2026-10-18);
-// the approved scored themes (Grasslands V4 etc.) stay one switch away for
-// comparison over several runs. Switch: the MUSIC button on the title and
-// game-over screens, the T key, or ?music=test / ?music=original. The choice
-// is remembered on the device.
-var MUSIC_TESTS = {
-  0: { id:'folk-dance-d', name:'FOLK DANCE IN D', src:'assets/audio/experimental/trex_folk_D_developed.wav' },
-  4: { id:'baroque',      name:'BAROQUE',         src:'assets/audio/experimental/trex_baroque_onbeat.wav' },
+// Soundtrack: recorded tracks, played exactly as delivered (no tempo, pitch
+// or arrangement changes). "music 2" (2026-11-03) gives the title screen,
+// every world and the Phantom Raptor their own track. The approved scored
+// themes (Grasslands V4 etc.) stay one switch away for comparison: the MUSIC
+// button on the title screen, the T key, or ?music=test / ?music=original.
+// The choice is remembered on the device. Sound effects are not music and
+// never change with this switch.
+var MUSIC_DIR = 'assets/audio/music/';
+var LAST_LV = 5;      // Endless Night, the endless world
+var BOSS_LV = 4;      // Caverns ends with the Phantom Raptor
+var TRACKS = {
+  title:   { id:'title-and-hall-of-fame', src:MUSIC_DIR+'title-and-hall-of-fame.wav' }, // title + Hall of Fame
+  worlds: [
+    { id:'grassland-adventure', src:MUSIC_DIR+'grassland-adventure.wav' }, // L1 Grasslands
+    { id:'volcano-dash',        src:MUSIC_DIR+'volcano-dash.wav' },        // L2 Volcano
+    { id:'desert-dash',         src:MUSIC_DIR+'desert-dash.wav' },         // L3 Desert
+    { id:'swamp-hop',           src:MUSIC_DIR+'swamp-hop.wav' },           // L4 Swamp
+    { id:'crystal-caverns',     src:MUSIC_DIR+'crystal-caverns.wav' },     // L5 Caverns (ends with the boss)
+    { id:'endless-night',       src:MUSIC_DIR+'endless-night.wav' },       // L6 Endless Night (endless)
+  ],
+  boss:    { id:'final-boss-theme', src:MUSIC_DIR+'final-boss-theme.wav' },
 };
 var musicTest = true;
 try { musicTest = localStorage.getItem('trex-music-test') !== '0'; } catch (e) {}
 if (/[?&]music=test\b/.test(location.search)) musicTest = true;
 if (/[?&]music=original\b/.test(location.search)) musicTest = false;
-function testTrack(lv) { return musicTest && !MUSIC_V1 ? MUSIC_TESTS[Math.min(lv, 4)] : null; }
+function newMusic() { return musicTest && !MUSIC_V1; }
+function testTrack(lv) {
+  if (!newMusic()) return null;
+  return TRACKS.worlds[Math.min(lv, LAST_LV)];
+}
 function toggleMusicTest() {
   musicTest = !musicTest;
   try { localStorage.setItem('trex-music-test', musicTest ? '1' : '0'); } catch (e) {}
   if (state === ST.PLAY) playWorldMusic(levelIdx);
+  else if (!newMusic()) Sound.stop(); // the scored themes have no title music
 }
-// The world's music: the experimental recording when testing, else the theme.
+// The world's music: the recording, or the scored theme in original mode.
 function playWorldMusic(lv, opts) {
   var tt = testTrack(lv);
   if (tt) Sound.playFile(tt.id, tt.src, Object.assign({}, opts, { onFail: function () { Sound.play(worldTheme(lv), opts); } }));
   else Sound.play(worldTheme(lv), opts);
+  // Warm up the next world's track so it starts right away after LEVEL CLEAR.
+  if (newMusic() && lv < LAST_LV) Sound.preload(TRACKS.worlds[lv + 1].src);
+}
+// Boss theme takes over from the world music.
+function playBossMusic() {
+  if (newMusic()) Sound.playFile(TRACKS.boss.id, TRACKS.boss.src, { sting: true, fade: 0.5,
+    onFail: function () { Sound.play('phantomRaptor', { sting: true, fade: 0.5 }); } });
+  else Sound.play('phantomRaptor', { sting: true, fade: 0.5 });
+}
+// Title screen and Hall of Fame share one track. Browsers only allow sound
+// after the first tap or key press, so this starts from then on.
+var audioUnlocked = false, titleFailed = false;
+function unlockAudio() {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
+  var ac = getAC(); if (ac.state === 'suspended') ac.resume();
+  if (newMusic()) { Sound.preload(TRACKS.title.src); Sound.preload(TRACKS.worlds[Math.min(levelIdx, LAST_LV)].src); }
+}
+['pointerdown', 'touchstart', 'keydown'].forEach(function (ev) { window.addEventListener(ev, unlockAudio, true); });
+function syncMenuMusic() {
+  if (!audioUnlocked || !newMusic() || titleFailed) return;
+  if (state === ST.TITLE || state === ST.BOARD)
+    Sound.playFile(TRACKS.title.id, TRACKS.title.src, { fade: 0.4, onFail: function () { titleFailed = true; } });
 }
 
 // Old songs per level  [freq, duration, optionalHarmonyFreq]
@@ -320,6 +361,13 @@ Assets.defineSprite('pterodactyl','assets/characters/pterodactyl/pterodactyl_atl
 });
 // Caveman atlas (32x32 cells, faces right = running away from the T-Rex).
 // Anchor puts the feet (sprite row 29, x 16) on the bottom-centre of the 14x22 box.
+// Phantom Raptor boss (ChatGPT, 2026-11-03): 80x60 frames, drawn facing left,
+// flipped by boss.js so it runs ahead of the T-Rex facing the same way.
+Assets.defineSprite('phantom-raptor','assets/characters/phantom-raptor/phantom_raptor_atlas',{
+  frameWidth:80, frameHeight:60, anchor:[40,58],
+  animations:anims([['run',0,6,12],['telegraph',1,3,4,false],['cloak',2,4,8,false],['stun',3,4,8],['defeat',4,3,6,false]]),
+  fallbacks:{telegraph:'run',cloak:'run',stun:'run',defeat:'stun'}
+});
 Assets.defineSprite('caveman','assets/characters/caveman/caveman_atlas',{
   frameWidth:32, frameHeight:32, anchor:[16,30],
   animations:anims([['run',0,8,12],['idle',1,4,5],['jump',2,6,9,false],['hurt',3,3,7,false],
@@ -356,6 +404,8 @@ var OBS_SPRITE={
   // Swamp/caverns duplicates (PR #51): swamp root for the log, cavern stalagmite
   // and amethyst outcrop for the stump and large rock.
   sR:'swamp-root', cG:'cave-stalagmite', aO:'amethyst-outcrop',
+  // Endless Night v01 (code-generated, docs/art/endless-night-v01).
+  nB:'moonstone-boulder', nS:'night-stump',
 };
 Object.keys(OBS_SPRITE).forEach(function(k){
   var id=OBS_SPRITE[k]; if(id==='pterodactyl')return;
@@ -375,7 +425,7 @@ var ENV_LAYERS=[
   {file:'ground.png',     speed:1, ground:true},
   {file:'foreground.png', speed:1.4, z:'front'},
 ];
-['grasslands','volcano','desert','swamp','caverns'].forEach(function(id){
+['grasslands','volcano','desert','swamp','caverns','endless-night'].forEach(function(id){
   Assets.defineEnvironment(id,'assets/environments/'+id,ENV_LAYERS);
 });
 Assets.load();
@@ -618,10 +668,18 @@ var THEMES = [
     obs:['mu','fl','pt','sR','st','mu','pt'], cloud:'#80a8a0',
     drawExtra: function(sc){ drawForestExtra(sc); }
   },
-  { name:'CAVERNS', env:'caverns', num:'∞',
+  { name:'CAVERNS', env:'caverns', num:'5',
     skyT:'#100820',skyB:'#301050',hillB:'#200828',hillF:'#301038',
     gT:'#202020',gnd:'#181818',gTex:'#ff00aa',
     obs:['iS','pt','cG','iT','pt','aO','pt'], cloud:'#303050',
+    drawExtra: function(sc){ drawEndlessExtra(sc); }
+  },
+  { name:'ENDLESS NIGHT', env:'endless-night', num:'∞', score:'caverns', // scored-theme mode reuses Caverns
+    skyT:'#070821',skyB:'#372c6e',hillB:'#1c1d4a',hillF:'#141538',
+    gT:'#6a9cb0',gnd:'#1a1c3a',gTex:'#7af0d8',
+    // Moonstone boulder and night stump are this world's large rock and stump.
+    obs:['nS','pt','nB','rS','pt','nS','nB','pt'], cloud:'#3a3478',
+    harmless:{rS:true},
     drawExtra: function(sc){ drawEndlessExtra(sc); }
   },
 ];
@@ -834,6 +892,7 @@ var OBJ = {
   fB:{w:36,h:26,low:true,hit:[[1,13,34,13],[15,0,10,15]]},
   dS:{w:PIX*5,h:PIX*4}, dB:{w:PIX*9,h:PIX*8}, // desert sandstone = rS/rL
   sR:{w:PIX*9,h:PIX*3}, cG:{w:PIX*6,h:PIX*7}, aO:{w:PIX*9,h:PIX*8}, // = gl, st, rL
+  nB:{w:PIX*9,h:PIX*8}, nS:{w:PIX*6,h:PIX*7}, // Endless Night = rL, st
   pt:{w:PIX*10,h:PIX*5},
 };
 // Solid boxes of an obstacle (one unless OBJ lists parts).
@@ -848,7 +907,9 @@ function obsBoxes(o){
 var PTERO_TOPS=[GROUND-64,GROUND-80,GROUND-96];
 // Swoopers dive at the T-Rex's head once they're close: jump and eat them, or
 // they hit you. Chance per pterodactyl rises with the level.
-var SWOOP_CHANCE=[0.3,0.35,0.4,0.45,0.5];
+var SWOOP_CHANCE=[0.3,0.35,0.4,0.45,0.5,0.5];
+// Endless Night keeps getting harder: +5% swoopers every 30 s, up to 85%.
+function swoopChance(){ var c=SWOOP_CHANCE[levelIdx]; return levelIdx===LAST_LV?Math.min(0.85,c+Math.floor(tick*STEP_MS/30000)*0.05):c; }
 var SWOOP_START=170;          // px ahead of the T-Rex where the dive begins
 var SWOOP_END=24;             // px ahead where it reaches head height
 var SWOOP_TOP=GROUND-36;      // box top at the bottom of the dive (head/neck height)
@@ -880,9 +941,9 @@ function spawnObs(th) {
     spawnT=Math.min(spawnT,0)-Math.round((cx-W-20)/Math.max(gameSpeed,1)); // room after a long set piece
     return;
   }
-  obstacles.push({kind:kind,x:W+20,y:oy,w:sz.w,h:sz.h,bitable:kind==='pt',harmless:!!(th.harmless&&th.harmless[kind]),wT:0,wF:0,flee:false,glide:false,swoop:kind==='pt'&&Math.random()<SWOOP_CHANCE[levelIdx],gT:60+Math.floor(Math.random()*90),anim:new Animator(kind==='pt'?'fly':'idle')});
+  obstacles.push({kind:kind,x:W+20,y:oy,w:sz.w,h:sz.h,bitable:kind==='pt',harmless:!!(th.harmless&&th.harmless[kind]),wT:0,wF:0,flee:false,glide:false,swoop:kind==='pt'&&Math.random()<swoopChance(),gT:60+Math.floor(Math.random()*90),anim:new Animator(kind==='pt'?'fly':'idle')});
   // Occasional paired ground obstacle
-  if(!th.combos&&(kind==='cS'||kind==='st'||kind==='cG'||kind==='lS')&&Math.random()<0.28){
+  if(!th.combos&&(kind==='cS'||kind==='st'||kind==='cG'||kind==='nS'||kind==='lS')&&Math.random()<0.28){
     var k2=th.obs.filter(function(t){return t!=='pt';})[0]||kind;
     var s2=OBJ[k2]||sz;
     obstacles.push({kind:k2,x:W+20+sz.w+PIX*5,y:GROUND-s2.h,w:s2.w,h:s2.h,bitable:false,harmless:!!(th.harmless&&th.harmless[k2]),wT:0,wF:0,flee:false,anim:new Animator('idle')});
@@ -909,6 +970,8 @@ function drawObstaclePlaceholder(o){
     case 'sR': drawGrassLog(o.x,o.y);     break;
     case 'cG': drawStump(o.x,o.y);        break;
     case 'aO': drawRock(o.x,o.y,true);    break;
+    case 'nB': drawRock(o.x,o.y,true);    break;
+    case 'nS': drawStump(o.x,o.y);        break;
     // Fallen-tree fallbacks (only if the PNGs fail to load)
     case 'fT': R(o.x+1,o.y+3,o.w-2,o.h-5,'#8a5a2a'); R(o.x,o.y+5,4,7,'#e0b060'); break;
     case 'fB': R(o.x+1,o.y+14,o.w-2,o.h-15,'#8a5a2a'); R(o.x+16,o.y,8,15,'#7a4a20'); R(o.x,o.y+16,4,7,'#e0b060'); break;
@@ -1212,8 +1275,8 @@ function isOnRawrBtn(ex,ey) {
 
 function drawHUD(th,timeLeft) {
   // Level tag (top left)
-  ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(2,2,84,13);
   ctx.font='bold 9px monospace'; ctx.textAlign='left';
+  ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(2,2,Math.max(84,ctx.measureText('LV'+th.num+' '+th.name).width+6),13);
   ctx.fillStyle='#fff'; ctx.fillText('LV'+th.num+' '+th.name,5,12);
   // Timer (top center)
   ctx.textAlign='center';
@@ -1246,7 +1309,7 @@ var ST={TITLE:0,PLAY:1,LVLDONE:2,DEAD:3,BOARD:4};
 var deathCount=0;
 var state=ST.TITLE;
 var levelIdx=parseInt(localStorage.getItem('trex-lv')||'0',10);
-if(levelIdx<0||levelIdx>4)levelIdx=0;
+if(levelIdx<0||levelIdx>LAST_LV)levelIdx=0;
 var scroll=0, tick=0, gameSpeed=4.0, bossTicks=0; // level timer is frozen during the boss
 var STEP_MS=1000/60; // the game advances in fixed 60 Hz steps; level time is counted in steps
 
@@ -1260,7 +1323,7 @@ function resetLevel() {
   lastWorld=levelIdx; localStorage.setItem('trex-lastworld',levelIdx); // themes the Hall of Fame
   player.reset();
   obstacles.length=0; chaseables.length=0; popups.length=0; lavaRocks.length=0; effects.length=0;
-  Boss.reset(); Encounters.reset(); bossTicks=0;
+  Boss.reset(); Encounters.reset(); bossTicks=0
   spawnT=0; spawnI=cfg.spawnI; spawnNext=cfg.spawnI; chaseT=0; scroll=0; tick=0; score=0; scoreTick=0; flash=0; rawrCD=0; eruptT=0;
   gameSpeed=cfg.speed;
 }
@@ -1272,7 +1335,7 @@ function drawMusicTestBtn() {
   R(x,y,170,15,on?'rgba(150,50,190,0.9)':'rgba(0,0,0,0.65)');
   ctx.strokeStyle=on?'#e0a0ff':'#999'; ctx.strokeRect(x+0.5,y+0.5,169,14);
   ctx.textAlign='center'; ctx.font='bold 8px monospace'; ctx.fillStyle='#fff';
-  ctx.fillText(on?'♪ MUSIC: NEW  (tap for original V4)':'♪ MUSIC: ORIGINAL V4  (tap for new)',W/2,y+10);
+  ctx.fillText(on?'♪ MUSIC: NEW SOUNDTRACK  (tap for V4)':'♪ MUSIC: ORIGINAL V4  (tap for new)',W/2,y+10);
   ctx.textAlign='left';
 }
 function isOnMusicTestBtn(ex,ey) {
@@ -1319,7 +1382,7 @@ function doTap(ex,ey) {
     return;
   }
   if(state===ST.LVLDONE){
-    levelIdx=Math.min(levelIdx+1,4);
+    levelIdx=Math.min(levelIdx+1,LAST_LV);
     localStorage.setItem('trex-lv',levelIdx);
     var savedScore=score;
     state=ST.PLAY; resetLevel(); score=savedScore; startMusic(levelIdx); return;
@@ -1449,7 +1512,7 @@ function drawTitle() {
   ctx.strokeStyle='#ffff44'; ctx.lineWidth=2; ctx.strokeRect(W/2-152,H/2-72,304,144); ctx.lineWidth=1;
   ctx.textAlign='center';
   ctx.fillStyle='#ffff44'; ctx.font='bold 24px monospace'; ctx.fillText('T-REX RUN!',W/2,H/2-48);
-  ctx.fillStyle='#88ff88'; ctx.font='bold 8px monospace'; ctx.fillText('4 WORLDS + ENDLESS  ✦  JUMP ✦ BITE ✦ RAWR!',W/2,H/2-32);
+  ctx.fillStyle='#88ff88'; ctx.font='bold 8px monospace'; ctx.fillText('5 WORLDS + ENDLESS  ✦  JUMP ✦ BITE ✦ RAWR!',W/2,H/2-32);
   ctx.fillStyle='#ccc'; ctx.font='8px monospace';
   if(PAD){
     ctx.fillText('JUMP (tap twice = double jump)   BITE   RAWR',W/2,H/2-16);
@@ -1713,14 +1776,15 @@ function drawOver(){
 // ── Hall of Fame ─────────────────────────────────────────────────
 // The Hall of Fame and OH, RAWR! screens sit on the scenery and ambient
 // effects of the last world played. Text is drawn live, never baked into art.
-var lastWorld=Math.min(4,Math.max(0,parseInt(localStorage.getItem('trex-lastworld'),10)||0));
+var lastWorld=Math.min(5,Math.max(0,parseInt(localStorage.getItem('trex-lastworld'),10)||0));
 var reduceMotion=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 var BOARD_STYLE=[
   {stone:'#868c78',dark:'#565c4c',lite:'#a8ae96',rank:'#cdd3b8',accent:'#9bdc4a',fx:'butterfly'}, // mossy stone
   {stone:'#3e3539',dark:'#221c1f',lite:'#5c4d52',rank:'#c0aaa4',accent:'#ff7a20',fx:'ember'},     // basalt
   {stone:'#c49660',dark:'#8e6640',lite:'#e2bc86',rank:'#f4d8a8',accent:'#ffd27a',fx:'sand'},      // sandstone
   {stone:'#6a7062',dark:'#454b40',lite:'#8a917c',rank:'#b8c0a4',accent:'#c8ff70',fx:'firefly'},   // weathered stone
-  {stone:'#545078',dark:'#343050',lite:'#7872a6',rank:'#b0aaf0',accent:'#8ff0ff',fx:'sparkle'}    // crystal
+  {stone:'#545078',dark:'#343050',lite:'#7872a6',rank:'#b0aaf0',accent:'#8ff0ff',fx:'sparkle'},   // crystal
+  {stone:'#30345e',dark:'#1a1c3a',lite:'#5a6098',rank:'#c8d0ff',accent:'#7af0d8',fx:'firefly'}    // moonstone
 ];
 
 function drawBoardFx(fx,t){
@@ -1914,6 +1978,7 @@ function loop(now) {
 function step() {
   var th=THEMES[levelIdx];
 
+  syncMenuMusic();
   var artOn=showTitleArt();
   document.body.classList.toggle('title',artOn);
   document.body.classList.toggle('over',state===ST.DEAD);
@@ -1937,7 +2002,7 @@ function step() {
       spawnT++;if(spawnT>=spawnNext){spawnT=0;if(levelIdx>=3)spawnI=Math.max(lcfg.minSpawnI,spawnI-1);spawnObs(th);spawnNext=nextSpawnGap();}
       if(!Encounters.blocksPrey()){chaseT++;if(chaseT>=chaseI){chaseT=0;spawnChase();}}
     }
-    if(levelIdx>=3&&tick%280===0)gameSpeed=Math.min(levelIdx===4?22:13,gameSpeed+0.35);
+    if(levelIdx>=3&&tick%280===0)gameSpeed=Math.min(levelIdx===LAST_LV?22:13,gameSpeed+0.35);
     if(rawrCD>0)rawrCD--;
 
     Encounters.drawBack(gameSpeed);
@@ -1960,11 +2025,15 @@ function step() {
     updateScore();
     var lvDur=LEVEL_CFG[levelIdx].dur;
     var played=(tick-bossTicks)*STEP_MS;
+    // Caverns: time's up, the Phantom Raptor arrives. Beat it to reach Endless Night.
+    if(levelIdx===BOSS_LV&&played>=lvDur&&!exiting&&!Boss.active()&&!Boss.isDone()&&!Encounters.blocksPrey())Boss.startNow();
     drawHUD(th,Math.max(0,lvDur-played));
-    if(Boss.active()){R(W/2-52,17,104,11,'rgba(0,0,0,0.55)');ctx.textAlign='center';ctx.font='bold 8px monospace';ctx.fillStyle='#d8b8ff';ctx.fillText('BOSS: PHANTOM RAPTOR',W/2,25);ctx.textAlign='left';}
+    if(Boss.active()){R(W/2-52,17,104,18,'rgba(0,0,0,0.55)');ctx.textAlign='center';ctx.font='bold 8px monospace';ctx.fillStyle='#d8b8ff';ctx.fillText('BOSS: PHANTOM RAPTOR',W/2,25);ctx.textAlign='left';
+      // Bites left: one pip per bite still needed.
+      for(var hpI=0;hpI<Boss.BITES;hpI++){var hx=W/2-(Boss.BITES*8)/2+hpI*8+1;R(hx,28,6,4,hpI<Boss.hp()?'#c070ff':'#3a2a50');}}
 
     // Level complete check (not endless)
-    if(levelIdx<4&&played>=lvDur&&!exiting&&!Boss.active()&&!Encounters.blocksPrey()){ // let a chase finish first
+    if(levelIdx<LAST_LV&&played>=lvDur&&!exiting&&!Boss.active()&&(levelIdx!==BOSS_LV||Boss.isDone())&&!Encounters.blocksPrey()){ // let a chase finish first
       exiting=1; player.rawr(true); applyRawr();
       addPopup(player.x+DINO_W/2,player.y-10,'RAWR!','#ffcf2a');
     }

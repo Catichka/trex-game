@@ -34,13 +34,17 @@
     "swamp-root",
     "cave-stalagmite",
     "amethyst-outcrop",
-    "trex-dizzy"
+    "trex-dizzy",
+    "moonstone-boulder",
+    "night-stump",
+    "phantom-raptor"
   ],
   "environments": [
     "grasslands",
     "volcano",
     "desert",
     "swamp",
-    "caverns"
+    "caverns",
+    "endless-night"
   ]
 }

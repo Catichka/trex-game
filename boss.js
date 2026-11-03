@@ -1,11 +1,13 @@
 'use strict';
 // ── Phantom Raptor boss (placeholder prototype) ──────────────────
-// Design: docs/design/M2_RAWR_PHANTOM_RAPTOR.md. Enabled with ?boss (or #boss), which
-// starts the encounter 3 s into any level. One cycle: run in ahead of the
+// Design: docs/design/M2_RAWR_PHANTOM_RAPTOR.md. Arrives when Caverns' timer runs out;
+// ?boss (or #boss) also starts it 3 s into any level. One cycle: run in ahead of the
 // T-Rex → telegraph → drop one obstacle → cloak (footprints + eye glint stay
 // visible). Small RAWR reveals it briefly, big RAWR stuns it; a stunned boss
-// drifts back into the T-Rex and is eaten on contact (no NOM button).
-// Missing the window just repeats the cycle. Placeholder pixel drawing only.
+// drifts back to the T-Rex's jaws and one BITE lands (Cat, 2026-11-03). After a
+// bite it runs ahead again and repeats its pattern. The 5th bite eats it.
+// Missing the window just repeats the cycle. Art: ChatGPT's sprite sheet
+// (assets/characters/phantom-raptor); the pixel drawing below is the fallback.
 //
 // Uses game.js globals at runtime (player, obstacles, THEMES, levelIdx, ...).
 
@@ -16,33 +18,37 @@ var Boss = (function () {
   var W_ = 40 * U, H_ = 30 * U;  // gameplay box
   var LEAD = 200;                // px ahead of the T-Rex while running
   var RAWR_RANGE = 260;          // boss box left edge within this of the T-Rex
-  var TELEGRAPH = 45, CLOAK_FOR = 300, REVEAL = 72, STUN = 90, SCORE = 200;
+  var TELEGRAPH = 45, CLOAK_FOR = 300, REVEAL = 72, STUN = 110, SCORE = 200;
+  var BITES = 5, BITE_SCORE = 40, GULP = 50; // bites to win, points per bite, ticks to swallow
 
   var b = null, done = false, prints = [];
 
   function homeX() { return player.x + LEAD; }
   function set(st, t) { b.state = st; b.t = 0; b.dur = t || 0; }
 
-  function reset() { b = null; done = false; prints.length = 0; }
+  var rocks = []; // thrown rocks still in the air
+  function reset() { b = null; done = false; prints.length = 0; rocks.length = 0; }
   function active() { return !!b; }
 
   function maybeStart(tick) {
     if (!ENABLED || done || b || tick < START_TICK) return;
-    b = { x: W + 20, y: GROUND - H_, state: 'enter', t: 0, dur: 80, alpha: 1, reveal: 0, f: 0, fromX: 0 };
+    startNow();
+  }
+  // The real encounter: the end of Caverns (game.js). ?boss also starts it early.
+  function startNow() {
+    if (done || b) return;
+    b = { x: W + 20, y: GROUND - H_, state: 'enter', t: 0, dur: 80, alpha: 1, reveal: 0, f: 0, fromX: 0, hp: BITES, hurt: 0 };
     // Boss theme takes over from the world music (old music mode: just a jingle).
-    if (MUSIC_V1) sfxLevelUp(); else Sound.play('phantomRaptor', { sting: true, fade: 0.5 });
+    if (MUSIC_V1) sfxLevelUp(); else playBossMusic();
     addPopup(W / 2, 60, 'PHANTOM RAPTOR!', '#c8a0ff');
   }
 
-  // Obstacle the boss throws: the theme's first ground obstacle.
-  function attackKind() {
-    var th = THEMES[levelIdx];
-    for (var i = 0; i < th.obs.length; i++) if (th.obs[i] !== 'pt') return th.obs[i];
-    return 'rS';
-  }
-  // Where the thrown obstacle lands: at least ~0.75 s of travel from the
-  // T-Rex whatever the speed (off the right edge at very high speeds).
-  function attackX(spd) { return Math.min(W, Math.max(b.x, player.x + DINO_W + spd * 45)); }
+  // It throws a big rock (Cat, 2026-11-03): it arcs back toward the T-Rex and
+  // lands as a solid boulder you have to jump.
+  var ROCK = 'rL', FLIGHT = 26;
+  // Where the rock lands: between the raptor and the T-Rex, about 0.65 s
+  // of scrolling from the T-Rex once it's down.
+  function attackX(spd) { return Math.min(W - 30, b.x - 10, player.x + DINO_W + Math.max(70, spd * 40)); }
   function obstacleAhead() {
     for (var i = 0; i < obstacles.length; i++) if (obstacles[i].x + obstacles[i].w > player.x) return true;
     return false;
@@ -51,16 +57,17 @@ var Boss = (function () {
   function onRawr(big) {
     if (!b) return;
     var st = b.state;
-    if (st === 'enter' || st === 'stun' || st === 'recover' || st === 'defeat') return;
+    if (st === 'enter' || st === 'stun' || st === 'recover' || st === 'eaten') return;
     if (b.x - (player.x + DINO_W) > RAWR_RANGE) return;
     if (big) { b.fromX = b.x; set('stun', STUN); b.alpha = 1; addPopup(b.x + W_ / 2, b.y - 6, 'STUNNED!', '#ffff44'); }
     else b.reveal = REVEAL;
   }
 
   function update(spd) {
-    if (!b) return;
+    if (!b) { updateRocks(spd); return; }
     b.t++; b.f++; b.spd = spd;
     if (b.reveal > 0) b.reveal--;
+    if (b.hurt > 0) b.hurt--;
     var p;
     switch (b.state) {
       case 'enter':
@@ -75,10 +82,9 @@ var Boss = (function () {
       case 'telegraph':
         b.x = homeX();
         if (b.t >= b.dur) {
-          var k = attackKind(), sz = OBJ[k] || OBJ.rS;
-          var ox = attackX(spd);
-          obstacles.push({ kind: k, x: ox, y: GROUND - sz.h, w: sz.w, h: sz.h, bitable: false, wT: 0, wF: 0, flee: false, anim: new Animator('idle') });
-          sfxLavaLand();
+          // Thrown from the claws; landing spot scrolls with the ground while it flies.
+          rocks.push({ x0: b.x + 52, y0: b.y + 18, tx: attackX(spd) + spd * FLIGHT, t: 0 });
+          sfxSwoop();
           set('cloak', CLOAK_FOR);
         }
         break;
@@ -97,29 +103,64 @@ var Boss = (function () {
         b.x = b.fromX + (homeX() - b.fromX) * p;
         if (p >= 1) set('cloak', CLOAK_FOR);
         break;
-      case 'defeat':
-        b.x -= spd + 1; b.y = Math.min(GROUND - H_ + 8, b.y + 0.5);
-        if (b.x < -60) { b = null; done = true; addPopup(W / 2, 60, 'PHANTOM RAPTOR DEFEATED!', '#88ff88'); }
+      case 'eaten': // swallowed whole: shrinks into the T-Rex's jaws
+        if (b.t >= b.dur) { b = null; done = true; addPopup(W / 2, 60, 'PHANTOM RAPTOR DEFEATED!', '#88ff88'); }
         break;
     }
-    if (!b) return;
+    if (!b) { updateRocks(spd); return; }
     // Cloak fades in/out; revealed, stunned and attacking bosses are fully visible.
     var hidden = b.state === 'cloak' && b.reveal === 0;
     b.alpha += ((hidden ? 0.12 : 1) - b.alpha) * 0.15;
     prints.forEach(function (fp) { fp.x -= spd; fp.life--; });
+    updateRocks(spd);
     prints = prints.filter(function (fp) { return fp.life > 0 && fp.x > -10; });
   }
 
-  // Contact NOM: only while stunned, scores once.
+  // BITE while it's stunned at the T-Rex's jaws: one bite per stun.
   function checkNom() {
-    if (!b || b.state !== 'stun') return;
-    if (!hits(player.hitX, player.hitY, player.hitW, player.hitH, b.x + 4, b.y + 4, W_ - 8, H_ - 4)) return;
-    player.triggerBite();
-    spawnEffect('fx-chomp', 'play', b.x, b.y, W_, H_, false, { center: true });
-    score += SCORE; addPopup(b.x + W_ / 2, b.y - 6, '+' + SCORE + ' NOM!', '#ffee44'); sfxBite(); sfxCatch();
-    set('defeat');
-    // Victory flourish, then the world's music comes back.
-    if (!MUSIC_V1) { Sound.fanfare(); playWorldMusic(levelIdx, { fade: 0.3, delay: 0.8 }); }
+    if (!b || b.state !== 'stun' || !player.biting) return;
+    if (!hits(player.biteX, player.biteY, player.biteW, player.biteH, b.x + 4, b.y + 4, W_ - 8, H_ - 4)) return;
+    b.hp--; b.hurt = 24; player.chomp(); sfxBite();
+    spawnEffect('fx-chomp', 'play', player.mouthX, player.mouthY, 24, 24, false, { center: true });
+    if (b.hp > 0) {
+      score += BITE_SCORE;
+      addPopup(b.x + W_ / 2, b.y - 6, 'BITE! ' + b.hp + ' TO GO', '#ffee44');
+      b.fromX = b.x; set('recover', 60); // back out in front, then the pattern again
+      return;
+    }
+    // Last bite: eaten like the other dinosaurs.
+    score += SCORE; addPopup(player.mouthX + 8, player.y - 10, '+' + SCORE + ' GULP!', '#88ff88'); sfxCatch();
+    b.fromX = b.x; set('eaten', GULP);
+    if (!MUSIC_V1) {
+      Sound.fanfare();
+      // The Caverns finale ends the level; a ?boss test fight returns to the world music.
+      if (levelIdx !== BOSS_LV) playWorldMusic(levelIdx, { fade: 0.3, delay: 0.8 });
+    }
+  }
+  function hp() { return b ? b.hp : 0; }
+
+  function rockPos(r) {
+    var p = r.t / FLIGHT, sz = OBJ[ROCK];
+    return { x: r.x0 + (r.tx - r.x0) * p, y: r.y0 + (GROUND - sz.h - r.y0) * p - Math.sin(p * Math.PI) * 50, p: p };
+  }
+  function updateRocks(spd) {
+    for (var i = rocks.length - 1; i >= 0; i--) {
+      var r = rocks[i]; r.t++; r.x0 -= spd; r.tx -= spd;
+      if (r.t < FLIGHT) continue;
+      var sz = OBJ[ROCK];
+      rocks.splice(i, 1);
+      obstacles.push({ kind: ROCK, x: r.tx, y: GROUND - sz.h, w: sz.w, h: sz.h, bitable: false, wT: 0, wF: 0, flee: false, anim: new Animator('idle') });
+      sfxLavaLand();
+      spawnEffect('fx-dust', 'play', r.tx, GROUND - 16, sz.w, 16, true, { center: true });
+    }
+  }
+  function drawRocks() {
+    rocks.forEach(function (r) {
+      var q = rockPos(r), sz = OBJ[ROCK];
+      ctx.save(); ctx.translate(Math.round(q.x + sz.w / 2), Math.round(q.y + sz.h / 2)); ctx.rotate(-q.p * Math.PI * 2);
+      if (!Assets.drawSprite(ctx, 'rock-large', 'idle', 0, -sz.w / 2, -sz.h / 2, sz.w, sz.h)) drawRock(-sz.w / 2, -sz.h / 2, true);
+      ctx.restore();
+    });
   }
 
   function drawRaptor(x, y, f, body, dark) {
@@ -144,17 +185,29 @@ var Boss = (function () {
       R(fp.x - 1, GROUND - 4, 9, 4, '#1a1030'); R(fp.x, GROUND - 3, 7, 2, '#e8d8ff');
     });
     ctx.globalAlpha = 1;
+    drawRocks();
     if (!b) return;
     var stunned = b.state === 'stun';
-    ctx.globalAlpha = b.alpha;
-    drawRaptor(b.x, b.y, stunned ? 0 : b.f, stunned ? '#b8a0ff' : '#5a40b8', stunned ? '#7a60d0' : '#2e2070');
-    ctx.globalAlpha = 1;
-    // The eye glint never disappears, even fully cloaked.
-    if (b.alpha < 0.6) R(b.x + 33 * U, b.y + U, 3 * U, 3 * U, '#ffe040');
+    if (b.state === 'eaten') { drawEaten(); return; }
+    // ChatGPT's sprite sheet when loaded. Its cloak frames fade by dithering
+    // and keep the eye visible, so no extra alpha or eye glint is needed.
+    var hidden = b.state === 'cloak' && b.reveal === 0;
+    var anim = hidden ? 'cloak' : b.state === 'telegraph' || stunned ? b.state : 'run';
+    var at = anim === 'run' || stunned ? b.f : b.t;
+    var flash = b.hurt > 0 && (b.hurt >> 2) % 2 === 0; // just bitten: blinks
+    var art = Assets.drawSprite(ctx, 'phantom-raptor', anim, at, b.x, b.y, W_, H_, { flipX: true, alpha: flash ? 0.35 : 1 });
+    var headX = art ? b.x + 60 : b.x + 34 * U;
+    if (!art) {
+      ctx.globalAlpha = b.alpha;
+      drawRaptor(b.x, b.y, stunned ? 0 : b.f, stunned ? '#b8a0ff' : '#5a40b8', stunned ? '#7a60d0' : '#2e2070');
+      ctx.globalAlpha = 1;
+      // The eye glint never disappears, even fully cloaked.
+      if (b.alpha < 0.6) R(b.x + 33 * U, b.y + U, 3 * U, 3 * U, '#ffe040');
+    }
     if (b.state === 'telegraph' && (b.t >> 2) % 2 === 0) {
-      R(b.x + 34 * U - 5, b.y - 18, 10, 13, '#ffff44');
+      R(headX - 5, b.y - 18, 10, 13, '#ffff44');
       ctx.fillStyle = '#c00000'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
-      ctx.fillText('!', b.x + 34 * U, b.y - 7); ctx.textAlign = 'left';
+      ctx.fillText('!', headX, b.y - 7); ctx.textAlign = 'left';
       // Ground-lane warning where the obstacle will land, arrows pointing at the T-Rex.
       var wx = Math.round(Math.min(W - 22, attackX(b.spd || 0)));
       R(wx - 1, GROUND + 2, 22, 9, '#1a1030');
@@ -164,7 +217,7 @@ var Boss = (function () {
         ctx.lineTo(wx + 8 + k * 10, GROUND + 9); ctx.fill();
       }
     }
-    if (stunned) {
+    if (stunned && !art) { // the sprite's stun frames have their own stars
       ctx.fillStyle = '#ffff00';
       for (var i = 0; i < 3; i++) {
         var a = b.f * 0.15 + i * 2.1;
@@ -178,8 +231,19 @@ var Boss = (function () {
     }
   }
 
+  // Last bite: the knocked-out raptor shrinks into the T-Rex's mouth.
+  function drawEaten() {
+    var p = Math.min(1, b.t / b.dur), e = p * p;
+    var cx = b.fromX + W_ / 2 + (player.mouthX + 10 - b.fromX - W_ / 2) * e;
+    var cy = GROUND + (player.mouthY + 14 - GROUND) * e, sc = 1 - 0.85 * e;
+    ctx.save(); ctx.translate(Math.round(cx), Math.round(cy)); ctx.scale(sc, sc);
+    if (!Assets.drawSprite(ctx, 'phantom-raptor', 'defeat', b.t, -W_ / 2, -H_, W_, H_, { flipX: true }))
+      drawRaptor(-W_ / 2, -H_, 0, '#b8a0ff', '#7a60d0');
+    ctx.restore();
+  }
+
   function info() { return b && { state: b.state, t: b.t, x: Math.round(b.x), alpha: +b.alpha.toFixed(2) }; }
 
-  return { enabled: ENABLED, reset: reset, active: active, info: info, maybeStart: maybeStart,
+  return { enabled: ENABLED, reset: reset, active: active, hp: hp, BITES: BITES, startNow: startNow, isDone: function () { return done; }, info: info, maybeStart: maybeStart,
            update: update, draw: draw, onRawr: onRawr, checkNom: checkNom };
 })();

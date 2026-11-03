@@ -1,0 +1,15 @@
+{
+  "name": "phantom-raptor",
+  "image": "phantom_raptor_atlas.png",
+  "frame_size": [
+    80,
+    60
+  ],
+  "pivot": [
+    40,
+    58
+  ],
+  "facing": "left",
+  "note": "6 columns x 5 rows; rows: run(6) telegraph(3) cloak(4) stun(4) defeat(3). From ChatGPT, Endless Night handover 2026-11-03.",
+  "rendering": "nearest-neighbor"
+}
