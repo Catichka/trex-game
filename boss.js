@@ -28,6 +28,11 @@ var Boss = (function () {
 
   function maybeStart(tick) {
     if (!ENABLED || done || b || tick < START_TICK) return;
+    startNow();
+  }
+  // The real encounter: the end of Caverns (game.js). ?boss also starts it early.
+  function startNow() {
+    if (done || b) return;
     b = { x: W + 20, y: GROUND - H_, state: 'enter', t: 0, dur: 80, alpha: 1, reveal: 0, f: 0, fromX: 0 };
     // Boss theme takes over from the world music (old music mode: just a jingle).
     if (MUSIC_V1) sfxLevelUp(); else playBossMusic();
@@ -180,6 +185,6 @@ var Boss = (function () {
 
   function info() { return b && { state: b.state, t: b.t, x: Math.round(b.x), alpha: +b.alpha.toFixed(2) }; }
 
-  return { enabled: ENABLED, reset: reset, active: active, info: info, maybeStart: maybeStart,
+  return { enabled: ENABLED, reset: reset, active: active, startNow: startNow, isDone: function () { return done; }, info: info, maybeStart: maybeStart,
            update: update, draw: draw, onRawr: onRawr, checkNom: checkNom };
 })();
