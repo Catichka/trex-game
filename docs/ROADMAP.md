@@ -4,6 +4,17 @@ Status: **agreed plan** (Cat approved the way forward on 2026-10-18). Updated 20
 Engine review behind this plan: [`docs/reviews/2026-10-18-architecture-review.md`](reviews/2026-10-18-architecture-review.md).
 How we work together: [`docs/COLLABORATION.md`](COLLABORATION.md).
 
+## Implementation checkpoint — 4 November 2026 (PR #59 reconciliation)
+
+**New Cat-approved product direction, merged 3 November:** [PR #59](https://github.com/Catichka/trex-game/pull/59) installs the eight-track Music 2 WAV soundtrack, replaces the previous Caverns-endless progression, integrates Endless Night art and a Phantom Raptor sprite atlas, and implements the revised boss encounter. This supersedes the **27 October checkpoint** below wherever the two disagree; the 18 October baseline remains historical.
+
+- **World order:** Grasslands → Volcano → Desert → Swamp → Caverns (2:00) → **Phantom Raptor boss** → Endless Night (endless). Title now advertises **5 WORLDS + ENDLESS**. The earlier plan to place the boss in Desert, or to leave Caverns endless, is retired.
+- **Boss mechanics:** Big RAWR stuns; **one explicit BITE per stun** (not contact NOM); four successful bites earn +40 each, fifth swallows the boss for +200 and unlocks Endless Night. Five remaining-hit pips provide feedback. This is a Cat-specified implemented rule, not the earlier one-hit design draft in PR #6.
+- **Music:** Music 2 WAV files in `assets/audio/music/` are the current default, including a distinct boss theme, title/Hall of Fame, and Endless Night. The scored V4 themes remain accessible via the MUSIC switch / `?music=original`, and are not the default Grasslands recording. Do not overwrite Cat's delivered WAVs with the draft score files.
+- **Art:** PR #59 includes seven 480×200 Endless Night layers, moonstone boulder (27×24), night stump (18×21), and Phantom Raptor 80×60 atlas frames. The delivered source and exact order are documented in `docs/art/endless-night-v01/`. The `CHATGPT_NEXT_ORDERS.md` describes a **completed delivery** in the PR, not a fresh request to redraw ten assets.
+- **Validation:** PR #59 reports headless Chromium checks for boss hit sequencing, music changes, level transition and Endless Night. This is not proof of a new live phone playtest build; retain Cat's normal playtest/approval gate for any further changes.
+- **Outstanding art PR #58:** still open, RGBA format corrected; Claude's native 480×200 and 3× landscape-phone BITE/RAWR comparison remains requested. Do not revise the icons without visual evidence or merge without Cat approval.
+
 ## Implementation checkpoint — 27 October 2026 (checked against GitHub PR states)
 
 **Current product title: T-Rex Run!** The sections below remain the **18 October baseline/plan**, retained for decision history; do **not** read their present-tense bug lists or milestone statuses as a description of today's `main`. The current implementation has moved significantly beyond that baseline. Only Cat approves merges to `main`; ChatGPT owns art/design/specs, Claude owns engineering/integration/testing.
