@@ -26,7 +26,8 @@ var Boss = (function () {
   function homeX() { return player.x + LEAD; }
   function set(st, t) { b.state = st; b.t = 0; b.dur = t || 0; }
 
-  function reset() { b = null; done = false; prints.length = 0; }
+  var rocks = []; // thrown rocks still in the air
+  function reset() { b = null; done = false; prints.length = 0; rocks.length = 0; }
   function active() { return !!b; }
 
   function maybeStart(tick) {
@@ -42,15 +43,12 @@ var Boss = (function () {
     addPopup(W / 2, 60, 'PHANTOM RAPTOR!', '#c8a0ff');
   }
 
-  // Obstacle the boss throws: the theme's first ground obstacle.
-  function attackKind() {
-    var th = THEMES[levelIdx];
-    for (var i = 0; i < th.obs.length; i++) if (th.obs[i] !== 'pt') return th.obs[i];
-    return 'rS';
-  }
-  // Where the thrown obstacle lands: at least ~0.75 s of travel from the
-  // T-Rex whatever the speed (off the right edge at very high speeds).
-  function attackX(spd) { return Math.min(W, Math.max(b.x, player.x + DINO_W + spd * 45)); }
+  // It throws a big rock (Cat, 2026-11-03): it arcs back toward the T-Rex and
+  // lands as a solid boulder you have to jump.
+  var ROCK = 'rL', FLIGHT = 26;
+  // Where the rock lands: between the raptor and the T-Rex, about 0.65 s
+  // of scrolling from the T-Rex once it's down.
+  function attackX(spd) { return Math.min(W - 30, b.x - 10, player.x + DINO_W + Math.max(70, spd * 40)); }
   function obstacleAhead() {
     for (var i = 0; i < obstacles.length; i++) if (obstacles[i].x + obstacles[i].w > player.x) return true;
     return false;
@@ -66,7 +64,7 @@ var Boss = (function () {
   }
 
   function update(spd) {
-    if (!b) return;
+    if (!b) { updateRocks(spd); return; }
     b.t++; b.f++; b.spd = spd;
     if (b.reveal > 0) b.reveal--;
     if (b.hurt > 0) b.hurt--;
@@ -84,10 +82,9 @@ var Boss = (function () {
       case 'telegraph':
         b.x = homeX();
         if (b.t >= b.dur) {
-          var k = attackKind(), sz = OBJ[k] || OBJ.rS;
-          var ox = attackX(spd);
-          obstacles.push({ kind: k, x: ox, y: GROUND - sz.h, w: sz.w, h: sz.h, bitable: false, wT: 0, wF: 0, flee: false, anim: new Animator('idle') });
-          sfxLavaLand();
+          // Thrown from the claws; landing spot scrolls with the ground while it flies.
+          rocks.push({ x0: b.x + 52, y0: b.y + 18, tx: attackX(spd) + spd * FLIGHT, t: 0 });
+          sfxSwoop();
           set('cloak', CLOAK_FOR);
         }
         break;
@@ -110,11 +107,12 @@ var Boss = (function () {
         if (b.t >= b.dur) { b = null; done = true; addPopup(W / 2, 60, 'PHANTOM RAPTOR DEFEATED!', '#88ff88'); }
         break;
     }
-    if (!b) return;
+    if (!b) { updateRocks(spd); return; }
     // Cloak fades in/out; revealed, stunned and attacking bosses are fully visible.
     var hidden = b.state === 'cloak' && b.reveal === 0;
     b.alpha += ((hidden ? 0.12 : 1) - b.alpha) * 0.15;
     prints.forEach(function (fp) { fp.x -= spd; fp.life--; });
+    updateRocks(spd);
     prints = prints.filter(function (fp) { return fp.life > 0 && fp.x > -10; });
   }
 
@@ -141,6 +139,30 @@ var Boss = (function () {
   }
   function hp() { return b ? b.hp : 0; }
 
+  function rockPos(r) {
+    var p = r.t / FLIGHT, sz = OBJ[ROCK];
+    return { x: r.x0 + (r.tx - r.x0) * p, y: r.y0 + (GROUND - sz.h - r.y0) * p - Math.sin(p * Math.PI) * 50, p: p };
+  }
+  function updateRocks(spd) {
+    for (var i = rocks.length - 1; i >= 0; i--) {
+      var r = rocks[i]; r.t++; r.x0 -= spd; r.tx -= spd;
+      if (r.t < FLIGHT) continue;
+      var sz = OBJ[ROCK];
+      rocks.splice(i, 1);
+      obstacles.push({ kind: ROCK, x: r.tx, y: GROUND - sz.h, w: sz.w, h: sz.h, bitable: false, wT: 0, wF: 0, flee: false, anim: new Animator('idle') });
+      sfxLavaLand();
+      spawnEffect('fx-dust', 'play', r.tx, GROUND - 16, sz.w, 16, true, { center: true });
+    }
+  }
+  function drawRocks() {
+    rocks.forEach(function (r) {
+      var q = rockPos(r), sz = OBJ[ROCK];
+      ctx.save(); ctx.translate(Math.round(q.x + sz.w / 2), Math.round(q.y + sz.h / 2)); ctx.rotate(-q.p * Math.PI * 2);
+      if (!Assets.drawSprite(ctx, 'rock-large', 'idle', 0, -sz.w / 2, -sz.h / 2, sz.w, sz.h)) drawRock(-sz.w / 2, -sz.h / 2, true);
+      ctx.restore();
+    });
+  }
+
   function drawRaptor(x, y, f, body, dark) {
     x = Math.round(x); y = Math.round(y);
     function P(px, py, w, h, c) { R(x + px * U, y + py * U, w * U, h * U, c); }
@@ -163,6 +185,7 @@ var Boss = (function () {
       R(fp.x - 1, GROUND - 4, 9, 4, '#1a1030'); R(fp.x, GROUND - 3, 7, 2, '#e8d8ff');
     });
     ctx.globalAlpha = 1;
+    drawRocks();
     if (!b) return;
     var stunned = b.state === 'stun';
     if (b.state === 'eaten') { drawEaten(); return; }
