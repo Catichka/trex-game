@@ -181,31 +181,74 @@ function sfxRawrBig() {
 var MUSIC_V1 = /[?&]music=v1\b/.test(location.search);
 function worldTheme(lv) { return THEMES[Math.min(lv, THEMES.length - 1)].env; }
 
-// Music alpha test: recorded tracks, played exactly as delivered (no tempo,
-// pitch or arrangement changes). Cat made them the default (2026-10-18);
-// the approved scored themes (Grasslands V4 etc.) stay one switch away for
-// comparison over several runs. Switch: the MUSIC button on the title and
-// game-over screens, the T key, or ?music=test / ?music=original. The choice
-// is remembered on the device.
-var MUSIC_TESTS = {
-  0: { id:'folk-dance-d', name:'FOLK DANCE IN D', src:'assets/audio/experimental/trex_folk_D_developed.wav' },
-  4: { id:'baroque',      name:'BAROQUE',         src:'assets/audio/experimental/trex_baroque_onbeat.wav' },
+// Soundtrack: recorded tracks, played exactly as delivered (no tempo, pitch
+// or arrangement changes). "music 2" (2026-11-03) gives the title screen,
+// every world and the Phantom Raptor their own track. The approved scored
+// themes (Grasslands V4 etc.) stay one switch away for comparison: the MUSIC
+// button on the title screen, the T key, or ?music=test / ?music=original.
+// The choice is remembered on the device. Sound effects are not music and
+// never change with this switch.
+var MUSIC_DIR = 'assets/audio/music/';
+var TRACKS = {
+  title:   { id:'title-and-hall-of-fame', src:MUSIC_DIR+'title-and-hall-of-fame.wav' }, // title + Hall of Fame
+  worlds: [
+    { id:'grassland-adventure', src:MUSIC_DIR+'grassland-adventure.wav' }, // L1 Grasslands
+    { id:'volcano-dash',        src:MUSIC_DIR+'volcano-dash.wav' },        // L2 Volcano
+    { id:'desert-dash',         src:MUSIC_DIR+'desert-dash.wav' },         // L3 Desert
+    { id:'swamp-hop',           src:MUSIC_DIR+'swamp-hop.wav' },           // L4 Swamp
+    { id:'crystal-caverns',     src:MUSIC_DIR+'crystal-caverns.wav' },     // L5 Caverns (endless)
+  ],
+  // Caverns is endless: after ENDLESS_NIGHT_MS of play its music turns into
+  // Endless Night for the rest of the run.
+  night:   { id:'endless-night', src:MUSIC_DIR+'endless-night.wav' },
+  boss:    { id:'final-boss-theme', src:MUSIC_DIR+'final-boss-theme.wav' },
 };
+var ENDLESS_NIGHT_MS = 2*60*1000;
+var nightFell = false; // reset by resetLevel()
 var musicTest = true;
 try { musicTest = localStorage.getItem('trex-music-test') !== '0'; } catch (e) {}
 if (/[?&]music=test\b/.test(location.search)) musicTest = true;
 if (/[?&]music=original\b/.test(location.search)) musicTest = false;
-function testTrack(lv) { return musicTest && !MUSIC_V1 ? MUSIC_TESTS[Math.min(lv, 4)] : null; }
+function newMusic() { return musicTest && !MUSIC_V1; }
+function testTrack(lv) {
+  if (!newMusic()) return null;
+  lv = Math.min(lv, 4);
+  return lv === 4 && nightFell ? TRACKS.night : TRACKS.worlds[lv];
+}
 function toggleMusicTest() {
   musicTest = !musicTest;
   try { localStorage.setItem('trex-music-test', musicTest ? '1' : '0'); } catch (e) {}
   if (state === ST.PLAY) playWorldMusic(levelIdx);
+  else if (!newMusic()) Sound.stop(); // the scored themes have no title music
 }
-// The world's music: the experimental recording when testing, else the theme.
+// The world's music: the recording, or the scored theme in original mode.
 function playWorldMusic(lv, opts) {
   var tt = testTrack(lv);
   if (tt) Sound.playFile(tt.id, tt.src, Object.assign({}, opts, { onFail: function () { Sound.play(worldTheme(lv), opts); } }));
   else Sound.play(worldTheme(lv), opts);
+  // Warm up the next world's track so it starts right away after LEVEL CLEAR.
+  if (newMusic() && lv < 4) Sound.preload(TRACKS.worlds[lv + 1].src);
+}
+// Boss theme takes over from the world music.
+function playBossMusic() {
+  if (newMusic()) Sound.playFile(TRACKS.boss.id, TRACKS.boss.src, { sting: true, fade: 0.5,
+    onFail: function () { Sound.play('phantomRaptor', { sting: true, fade: 0.5 }); } });
+  else Sound.play('phantomRaptor', { sting: true, fade: 0.5 });
+}
+// Title screen and Hall of Fame share one track. Browsers only allow sound
+// after the first tap or key press, so this starts from then on.
+var audioUnlocked = false, titleFailed = false;
+function unlockAudio() {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
+  var ac = getAC(); if (ac.state === 'suspended') ac.resume();
+  if (newMusic()) { Sound.preload(TRACKS.title.src); Sound.preload(TRACKS.worlds[Math.min(levelIdx, 4)].src); }
+}
+['pointerdown', 'touchstart', 'keydown'].forEach(function (ev) { window.addEventListener(ev, unlockAudio, true); });
+function syncMenuMusic() {
+  if (!audioUnlocked || !newMusic() || titleFailed) return;
+  if (state === ST.TITLE || state === ST.BOARD)
+    Sound.playFile(TRACKS.title.id, TRACKS.title.src, { fade: 0.4, onFail: function () { titleFailed = true; } });
 }
 
 // Old songs per level  [freq, duration, optionalHarmonyFreq]
@@ -1260,7 +1303,7 @@ function resetLevel() {
   lastWorld=levelIdx; localStorage.setItem('trex-lastworld',levelIdx); // themes the Hall of Fame
   player.reset();
   obstacles.length=0; chaseables.length=0; popups.length=0; lavaRocks.length=0; effects.length=0;
-  Boss.reset(); Encounters.reset(); bossTicks=0;
+  Boss.reset(); Encounters.reset(); bossTicks=0; nightFell=false;
   spawnT=0; spawnI=cfg.spawnI; spawnNext=cfg.spawnI; chaseT=0; scroll=0; tick=0; score=0; scoreTick=0; flash=0; rawrCD=0; eruptT=0;
   gameSpeed=cfg.speed;
 }
@@ -1272,7 +1315,7 @@ function drawMusicTestBtn() {
   R(x,y,170,15,on?'rgba(150,50,190,0.9)':'rgba(0,0,0,0.65)');
   ctx.strokeStyle=on?'#e0a0ff':'#999'; ctx.strokeRect(x+0.5,y+0.5,169,14);
   ctx.textAlign='center'; ctx.font='bold 8px monospace'; ctx.fillStyle='#fff';
-  ctx.fillText(on?'♪ MUSIC: NEW  (tap for original V4)':'♪ MUSIC: ORIGINAL V4  (tap for new)',W/2,y+10);
+  ctx.fillText(on?'♪ MUSIC: NEW SOUNDTRACK  (tap for V4)':'♪ MUSIC: ORIGINAL V4  (tap for new)',W/2,y+10);
   ctx.textAlign='left';
 }
 function isOnMusicTestBtn(ex,ey) {
@@ -1914,6 +1957,7 @@ function loop(now) {
 function step() {
   var th=THEMES[levelIdx];
 
+  syncMenuMusic();
   var artOn=showTitleArt();
   document.body.classList.toggle('title',artOn);
   document.body.classList.toggle('over',state===ST.DEAD);
@@ -1960,6 +2004,7 @@ function step() {
     updateScore();
     var lvDur=LEVEL_CFG[levelIdx].dur;
     var played=(tick-bossTicks)*STEP_MS;
+    if(levelIdx===4&&!nightFell&&played>=ENDLESS_NIGHT_MS&&!Boss.active()){ nightFell=true; if(newMusic())playWorldMusic(levelIdx,{fade:1.5}); }
     drawHUD(th,Math.max(0,lvDur-played));
     if(Boss.active()){R(W/2-52,17,104,11,'rgba(0,0,0,0.55)');ctx.textAlign='center';ctx.font='bold 8px monospace';ctx.fillStyle='#d8b8ff';ctx.fillText('BOSS: PHANTOM RAPTOR',W/2,25);ctx.textAlign='left';}
 

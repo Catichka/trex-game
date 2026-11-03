@@ -12,6 +12,7 @@
 //   Sound.sfx              node game sound effects connect to
 //   Sound.play(id, opts)   switch music to a theme (crossfade); opts.sting
 //   Sound.stop()           fade the music out
+//   Sound.playFile(id, url, opts)  loop a recorded track as-is; opts.sting, opts.onFail
 //   Sound.toggleMute()     music on/off, remembered on this device
 
 var Sound = (function () {
@@ -215,16 +216,20 @@ var Sound = (function () {
     if (track) fadeOut(track, opts.fade || 0.35);
     track = null; pending = null; stopFile(opts.fade);
     var me = file = { id: id, src: null, out: null };
+    var notBefore = 0;
+    if (opts.sting) { sting(ac.currentTime + 0.05); notBefore = ac.currentTime + 0.65; }
     loadBuffer(url).then(function (buf) {
       if (file !== me) return; // something else started meanwhile
       me.out = ac.createGain(); me.out.gain.value = 1; me.out.connect(musicBus);
       me.src = ac.createBufferSource(); me.src.buffer = buf; me.src.loop = true;
-      me.src.connect(me.out); me.src.start(ac.currentTime + (opts.delay || 0.05));
+      me.src.connect(me.out); me.src.start(Math.max(ac.currentTime + (opts.delay || 0.05), notBefore));
     }).catch(function (e) {
       console.warn('[music] could not play ' + url, e);
       if (file === me) { file = null; if (opts.onFail) opts.onFail(); }
     });
   }
+  // Fetch and decode a track ahead of time so it starts without a gap.
+  function preload(url) { ctx(); loadBuffer(url).catch(function () {}); }
   function scoresReady() { if (pending) { var p = pending; pending = null; play(p.id, p.opts); } }
   // Ominous one-beat sting before the boss loop: low octave hit + noise swell.
   function sting(t) {
@@ -258,7 +263,7 @@ var Sound = (function () {
   var api = {
     ctx: ctx, sfx: null, play: play, stop: stop, scoresReady: scoresReady, duck: duck, fanfare: fanfare,
     toggleMute: toggleMute, isMuted: function () { return muted; },
-    playFile: playFile,
+    playFile: playFile, preload: preload,
     current: function () { return file ? file.id : track && track.id; },
     themes: function () { return window.THEME_SCORES || {}; },
   };

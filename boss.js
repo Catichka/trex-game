@@ -30,7 +30,7 @@ var Boss = (function () {
     if (!ENABLED || done || b || tick < START_TICK) return;
     b = { x: W + 20, y: GROUND - H_, state: 'enter', t: 0, dur: 80, alpha: 1, reveal: 0, f: 0, fromX: 0 };
     // Boss theme takes over from the world music (old music mode: just a jingle).
-    if (MUSIC_V1) sfxLevelUp(); else Sound.play('phantomRaptor', { sting: true, fade: 0.5 });
+    if (MUSIC_V1) sfxLevelUp(); else playBossMusic();
     addPopup(W / 2, 60, 'PHANTOM RAPTOR!', '#c8a0ff');
   }
 
